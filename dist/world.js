@@ -1,4 +1,6 @@
 import * as THREE from './assets/three.module.js';
+import {buildRequestedAdditions} from './pujo-additions.js';
+import {buildPhotoBooth,capturePortrait} from './photo-booth.js';
 import {constrainWalk} from './game-state.js';
 import {queueSnapshot,moveAmongPeople,crowdPath} from './movement.js';
 import {buildStreetDetails,installPeopleLife,greetPerson,characterPosition,updatePeople,createFireworks,updateFireworks} from './scene-life.js';
@@ -13,7 +15,7 @@ export class PujoWorld {
   this.materials=new Map();this.geometries={box:new THREE.BoxGeometry(1,1,1),sphere:new THREE.SphereGeometry(1,12,8),cylinder:new THREE.CylinderGeometry(1,1,1,12),cone:new THREE.ConeGeometry(1,1,12)};
   this.scene.add(new THREE.HemisphereLight('#dad0e8','#59402c',2.2));const moon=new THREE.DirectionalLight('#fff1d4',2.5);moon.position.set(-8,16,13);this.scene.add(moon);
   this.point('#ffb15b',100,25,0,6,-8);this.point('#ffc86d',65,24,0,7,3);this.point('#ffb35c',55,14,-10,3.5,10);this.point('#ffce8b',40,12,10,3,12);
-  this.buildStreet();buildStreetDetails(this);this.batchStreet();this.buildPandal();this.buildStalls();this.buildPeople();this.buildAtmosphere();installPeopleLife(this);createFireworks(this);this.bind();this.last=performance.now();this.frame(performance.now());
+  this.buildStreet();buildStreetDetails(this);this.batchStreet();this.buildPandal();this.buildStalls();this.buildPeople();buildRequestedAdditions(this);this.buildAtmosphere();installPeopleLife(this);buildPhotoBooth(this);createFireworks(this);this.bind();this.last=performance.now();this.frame(performance.now());
   document.fonts?.ready.then(()=>{for(const refresh of this.textRefresh||[])refresh();});
   this.onReady();
  }
@@ -188,13 +190,14 @@ export class PujoWorld {
   if(pose==='photo'){arms[0].rotation.x=-1.5;arms[1].rotation.x=-1.5;this.box('#292d31',[0,1.6,.54],[.32,.17,.035],body);this.box('#728d9d',[0,1.6,.562],[.25,.12,.01],body,{emissive:'#8aa0bd',emissiveIntensity:.3});}
   if(pose==='pray'){for(let i=0;i<2;i++){arms[i].rotation.x=-1;arms[i].rotation.z=i?.5:-.5;}this.rod([-.16,1.32,.37],[0,1.48,.4],.05,skin,body);this.rod([.16,1.32,.37],[0,1.48,.4],.05,skin,body);}
   if(priest){this.box('#b66541',[-.14,1.25,.2],[.11,.75,.04],body);this.rod([-.18,1.55,.22],[.19,.9,.22],.012,'#f1ddac',body);this.ball('#934438',[0,2.01,.18],[.018,.045,.01],body);}
+  if(z<1){this.box('#7c4d3e',[0,1.78,.166],[.052,.01,.012],body);for(const side of [-1,1]){this.ball('#d9c8ae',[side*.065,1.91,.16],[.026,.014,.008],body);this.ball(skin,[side*.175,1.87,0],[.027,.045,.025],body);this.ball(skin,[side*.035,-.43,.055],[.025,.04,.025],arms[side<0?0:1]);}}
   const person={g,body,arms,pose,seed:x*3+z,radius:.30*scale};this.people.push(person);return person;
  }
  buildPeople(){
   const colors=['#b95448','#b59a5c','#597b78','#d6b78a','#867197','#b08b6b','#72917c'];
   // Each queue figure has a permanent identity and follows the same curved path.
   this.queuePeople=[];const initial=queueSnapshot(0);for(let i=0;i<9;i++){const q=initial.people[i],p=this.person(q.x,q.z,{outfit:colors[i%7],sari:i%3===0,rotation:q.yaw,scale:i===5?.78:.95});p.queueId=i;this.queuePeople.push(p);}
-  this.person(3.4,1.7,{outfit:'#c6b494',rotation:.3});
+  this.volunteer=this.person(3.4,1.7,{outfit:'#c6b494',rotation:0});this.text('VOLUNTEER',[0,1.35,.24],.40,.12,{bg:'#784c36',font:'DM Sans',size:55,parent:this.volunteer.body});
   this.person(-3.2,17.8,{outfit:'#b75949',sari:true,rotation:.3});this.person(-4,18.3,{outfit:'#e1c798',rotation:2.2});this.person(-2.9,19.5,{outfit:'#6c8c85',scale:.6,rotation:2.7});
   this.vendorPeople=new Map();for(const [id,x,z,sari] of [['tea',-10.55,10,false],['game',9.7,14.9,false],['fuchka',-10.55,19,false],['jhalmuri',-10.55,25,false],['mishti',10.55,25,true],['flowers',10.55,7,true]]){const p=this.person(x,z,{outfit:colors[this.vendorPeople.size],sari,rotation:x<0?Math.PI/2:-Math.PI/2});p.g.position.y=.22;p.vendor=true;this.vendorPeople.set(id,p);}
   this.person(7.6,19,{outfit:'#6e8a85',rotation:.1});
@@ -207,7 +210,7 @@ export class PujoWorld {
   this.person(-3,-10,{outfit:'#867197',sari:true,pose:'photo',rotation:Math.PI});
   this.batchPeople(staticPeople);
   // Bengali priest, dhoti and uttariya, facing Maa and circling the arati lamp.
-  const priest=this.person(.35,-17.5,{outfit:'#e6d6b4',priest:true,rotation:Math.PI,pose:'arati'});priest.arms[1].rotation.x=-1.3;
+  const priest=this.person(.35,-17.5,{outfit:'#e6d6b4',priest:true,rotation:Math.atan2(-.35,-3.75),pose:'arati'});this.priest=priest;priest.arms[1].rotation.x=-1.3;
   const lampGroup=new THREE.Group();priest.body.add(lampGroup);lampGroup.position.set(.43,1.4,.52);this.cyl('#b39745',[0,0,0],[.25,.05,.25],lampGroup);for(let i=0;i<5;i++){const a=i/5*Math.PI*2;this.ball('#ffe5a0',[Math.cos(a)*.18,.12,Math.sin(a)*.18],[.035,.13,.035],lampGroup,{emissive:'#ffb13a',emissiveIntensity:3});}
   this.animations.push(t=>{if(this.reduced)return;lampGroup.position.x=.36+Math.sin(t*1.7)*.25;lampGroup.position.y=1.5+Math.cos(t*1.7)*.16;priest.arms[1].rotation.z=.15+Math.sin(t*1.7)*.2;});
   // Dhaki with a suspended cylindrical dhak, carrying strap, ropes and two curved sticks.
@@ -235,11 +238,12 @@ export class PujoWorld {
   this.canvas.addEventListener('pointermove',e=>{if(!this.drag)return;this.yaw-=(e.clientX-this.drag.x)*.004;this.pitch=Math.max(-.65,Math.min(.6,this.pitch-(e.clientY-this.drag.y)*.003));this.drag.x=e.clientX;this.drag.y=e.clientY;});
   const release=()=>{this.drag=null;};this.canvas.addEventListener('pointerup',release);this.canvas.addEventListener('pointercancel',release);
  }
+ capturePortrait(options){return capturePortrait(this,options);}
  characterPosition(id){return characterPosition(this,id);}
  greet(id){greetPerson(this,id);}
  startFireworks(){this.fireworks.elapsed=0;this.fireworks.active=true;this.fireworks.points.visible=true;updateFireworks(this,0);}
  stopFireworks(){this.fireworks.active=false;this.fireworks.points.visible=false;}
- obstacles(){return this.people.map(p=>({x:p.g.position.x,z:p.g.position.z,radius:p.radius}));}
+ obstacles(){const obstacles=this.people.map(p=>({x:p.g.position.x,z:p.g.position.z,radius:p.radius}));if(this.photoRig)obstacles.push({x:0,z:14.5,radius:.47});return obstacles;}
  joinQueue(onUpdate=()=>{}){this.stop();this.cancelMove();this.locked=true;return new Promise(resolve=>{this.queueRun={elapsed:0,resolve,onUpdate,released:false};});}
  updateQueue(dt){const run=this.queueRun;if(!run)return;run.elapsed+=dt;const snap=queueSnapshot(run.elapsed);this.queuePeople.forEach((p,i)=>{const q=snap.people[i];p.g.position.set(q.x,q.z<1?.4:0,q.z);p.g.rotation.y=q.yaw;if(!this.reduced){p.arms[0].rotation.x=Math.sin(run.elapsed*9+i)*.15;p.arms[1].rotation.x=-Math.sin(run.elapsed*9+i)*.15;}});
   if(!run.released){this.camera.position.set(snap.player.x,snap.player.z<1?2.1:1.9,snap.player.z);this.yaw=snap.player.yaw+Math.PI;this.pitch=.04;run.onUpdate(snap);if(snap.done){this.hasEntered=true;this.locked=false;run.released=true;run.resolve();}}

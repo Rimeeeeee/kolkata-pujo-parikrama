@@ -47,3 +47,13 @@ The fairground attendant stands alongside the target board with no bounding-box 
 The reverse street view includes buildings, eight two-headed street lamps and more festive strings. The Fireworks control takes the visitor to a street view; Back to Puja restores the previous view. Fireworks use a fixed pool of 576 particles in a single Points object and stop when returning. The altar image is smaller, keeps its original aspect ratio and sits entirely below the canopy, with painted side surrounds and a gold top border bridging it to the architecture.
 
 Verification includes distance boundaries, stale purchase buttons, live seller anchors, all guided routes, human rig/instance updates, namaskar palms, attendant/board clearance, altar bounds and fixed fireworks memory. Browser rendering and real-device frame rate remain unverified because no browser surface was available.
+
+## Targeted additions, 16 October 2026
+
+The restored layout, original character proportions, materials, rigging and crowd batching are retained. New floor decorations reuse the original alpona artwork. Two non-interactive dhakis and a woman holding/blowing a shankha stand along the courtyard sides; the existing male neighbour now also has a greeting. Small face/hand details apply inside the pandal only. Arjun remains ahead of the line, and the entrance place stops near him; joining walks to the true tail. The priest continues facing Maa when interacted with.
+
+Dress up & pose is available from Explore places or the existing Postcard dialog, without adding another footer control. A tripod marks the photo location and has a collision boundary. The isolated photo dialog offers sari/dhoti kurta, three poses and an optional name. A dedicated camera renders a complete avatar with the full pandal behind it into a downloadable PNG. The export keeps the full landscape composition without cropping. It uses a virtual avatar; no personal photo or upload is required.
+
+The regenerated speech uses an explicit Shubho vowel; the on-screen spelling is unchanged. The speech URL includes a pronunciation revision so cached audio is refreshed.
+
+Visual QA was performed in the in-app browser at the normal viewport and a 390 × 844 phone viewport. Exported sari and dhoti PNGs were inspected; this caught and corrected an inward wave arm and low-contrast dialog text. Native download-event reporting timed out in the in-app browser, so validation extracted and inspected the exact PNG linked by the download control instead. See [sari portrait](docs/qa/portrait-sari.png), [dhoti portrait](docs/qa/portrait-dhoti.png) and [phone dialog](docs/qa/photo-mobile.jpg). Automated checks also cover separation, queue order, proximity, guided navigation and ritual orientation.
