@@ -1,6 +1,7 @@
 import * as THREE from './assets/three.module.js';
 import {constrainWalk} from './game-state.js';
 import {queueSnapshot,moveAmongPeople,crowdPath} from './movement.js';
+import {buildStreetDetails,installPeopleLife,greetPerson,characterPosition,updatePeople,createFireworks,updateFireworks} from './scene-life.js';
 
 export class PujoWorld {
  constructor(canvas,{onFrame,onMove,onReady,onFail}){
@@ -12,7 +13,7 @@ export class PujoWorld {
   this.materials=new Map();this.geometries={box:new THREE.BoxGeometry(1,1,1),sphere:new THREE.SphereGeometry(1,12,8),cylinder:new THREE.CylinderGeometry(1,1,1,12),cone:new THREE.ConeGeometry(1,1,12)};
   this.scene.add(new THREE.HemisphereLight('#dad0e8','#59402c',2.2));const moon=new THREE.DirectionalLight('#fff1d4',2.5);moon.position.set(-8,16,13);this.scene.add(moon);
   this.point('#ffb15b',100,25,0,6,-8);this.point('#ffc86d',65,24,0,7,3);this.point('#ffb35c',55,14,-10,3.5,10);this.point('#ffce8b',40,12,10,3,12);
-  this.buildStreet();this.batchStreet();this.buildPandal();this.buildStalls();this.buildPeople();this.buildAtmosphere();this.bind();this.last=performance.now();this.frame(performance.now());
+  this.buildStreet();buildStreetDetails(this);this.batchStreet();this.buildPandal();this.buildStalls();this.buildPeople();this.buildAtmosphere();installPeopleLife(this);createFireworks(this);this.bind();this.last=performance.now();this.frame(performance.now());
   document.fonts?.ready.then(()=>{for(const refresh of this.textRefresh||[])refresh();});
   this.onReady();
  }
@@ -54,8 +55,7 @@ export class PujoWorld {
   // Overhead wiring and festive strings with drooping profiles.
   for(let z=2;z<=27;z+=5.5){const points=[];for(let i=0;i<=32;i++){let x=-12+24*i/32,y=8.7-1.8*Math.sin(i/32*Math.PI);points.push([x,y,z]);if(i%2===0)this.bulb([x,y-.15,z],i%4?'#ffce81':'#f7e2af',.065);}this.line(points,'#4e4443');}
   for(const side of [-1,1]){for(let z=1;z<28;z+=2.5)this.bulb([side*11.8,6.2,z],'#ffb75d',.045);this.line([[side*11.8,6.3,1],[side*11.8,6.3,28]],'#4a3c33');}
-  // A parked yellow Kolkata taxi, tucked into a side lane.
-  const taxi=new THREE.Group();taxi.position.set(-10.7,.2,32);taxi.rotation.y=.18;this.scene.add(taxi);this.box('#c59c42',[0,.65,0],[1.8,.8,3.8],taxi);this.box('#d7ac49',[0,1.2,-.15],[1.6,.65,2.1],taxi);this.box('#3c555b',[0,1.27,.92],[1.4,.43,.02],taxi);this.box('#3b555a',[0,1.27,-1.22],[1.4,.43,.02],taxi);this.box('#3c555a',[.81,1.27,-.15],[.02,.42,1.85],taxi);this.box('#3c555a',[-.81,1.27,-.15],[.02,.42,1.85],taxi);for(let x of [-.9,.9])for(let z of [-1.2,1.2]){const wheel=this.cyl('#29282b',[x,.4,z],[.36,.18,.36],taxi);wheel.rotation.z=Math.PI/2;}this.text('TAXI',[0,1.7,0],.6,.2,{bg:'#d5b557',fg:'#302a25',font:'DM Sans',parent:taxi});
+
  }
  buildPandal(){
   const cream='#d7b98a',ivory='#e4d0a8',red='#8d3c32',deep='#74382e',gold='#bb8d48';
@@ -86,7 +86,9 @@ export class PujoWorld {
   for(let z=-4;z>-20;z-=5){this.flowers([-9.8,7.5,z],[0,7.4,z],.2);this.flowers([0,7.4,z],[9.8,7.5,z],.2);}
   this.jharbati();
   this.box(red,[0,4.7,-21.65],[20.5,8.8,.5]);this.box('#813a30',[0,1,-20.2],[15,1.4,2.6]);this.box('#c4a16a',[0,1.75,-19.9],[15.5,.15,3.1]);
-  const loader=new THREE.TextureLoader();loader.load('./assets/idol.png',tex=>{tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=4;const altar=new THREE.Mesh(new THREE.PlaneGeometry(14.7,9.8),new THREE.MeshBasicMaterial({map:tex}));altar.position.set(0,5.15,-21.25);this.scene.add(altar);},undefined,()=>this.text('মা দুর্গা',[0,4.5,-21.1],10,3,{bg:'#7e2f29',fg:'#ffe7ad'}));
+  // Painted surrounds bridge the image to the real stage beneath the canopy.
+  for(const side of [-1,1]){this.box('#85392f',[side*8.1,4.4,-21.1],[3.95,7.9,.12]);this.box('#c39e61',[side*6.11,4.35,-21.06],[.10,7.95,.10]);this.flowers([side*6.28,8.25,-21],[side*6.28,1.7,-21]);}this.box('#cba66d',[0,8.35,-21.05],[12.5,.20,.12]);
+  const loader=new THREE.TextureLoader();loader.load('./assets/idol.png',tex=>{tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=4;const altar=new THREE.Mesh(new THREE.PlaneGeometry(12,8),new THREE.MeshBasicMaterial({map:tex}));altar.name='complete-idol-ensemble';altar.position.set(0,4.25,-21.25);this.altar=altar;this.scene.add(altar);},undefined,()=>this.text('মা দুর্গা',[0,4.5,-21.1],10,3,{bg:'#7e2f29',fg:'#ffe7ad'}));
   for(let x of [-8.7,8.7]){this.column(x,-20.3,ivory,red);this.flowers([x,7.7,-19.9],[x,1.7,-19.9]);this.lamp(x*.82,.45,-17.6,1.4);}
   for(let x=-5.4;x<=5.5;x+=1.2)this.lamp(x,1.8,-18.8,.35);
   // Banana plants at the gateway.
@@ -109,7 +111,7 @@ export class PujoWorld {
  buildStalls(){
   this.stalls=[];
   this.stall(-10,10,'#9d4b35','হারুদার চা',Math.PI/2,'tea');this.stall(10,12,'#5e7770','বেলুন ফাটান',-Math.PI/2,'game');this.stall(-10,19,'#a98144','দাদার ফুচকা',Math.PI/2,'fuchka');
-  this.stall(-10,25,'#71825d','মশলা ঝালমুড়ি',Math.PI/2,'jhalmuri');this.stall(10,25,'#a45b70','মিতালির মিষ্টি',-Math.PI/2,'mishti');this.stall(10,5.2,'#89713f','বেলাদির ফুল',-Math.PI/2,'flowers');
+  this.stall(-10,25,'#71825d','মশলা ঝালমুড়ি',Math.PI/2,'jhalmuri');this.stall(10,25,'#a45b70','মিতালির মিষ্টি',-Math.PI/2,'mishti');this.stall(10,7,'#89713f','বেলাদির ফুল',-Math.PI/2,'flowers');
   const tea=new THREE.Group();tea.position.set(-10,0,10);tea.rotation.y=Math.PI/2;this.scene.add(tea);
   this.cyl('#4e514e',[0,1.28,.3],[.33,.5,.33],tea,{metalness:.5,roughness:.3});const handle=new THREE.Mesh(new THREE.TorusGeometry(.23,.035,6,16),this.mat('#4b4a43'));handle.position.set(.33,1.8,.3);tea.add(handle);this.cyl('#79766a',[0,1.58,.3],[.23,.05,.23],tea);this.ball('#463e35',[0,1.65,.3],[.06,.06,.06],tea);
   for(let i=0;i<8;i++)this.cyl('#b78150',[-1.1+(i%4)*.3,1.13,.2+Math.floor(i/4)*.3],[.07,.14,.07],tea);
@@ -118,7 +120,7 @@ export class PujoWorld {
   // Clay tea cups and bench by the stall.
   this.box('#73513b',[-7.8,.55,8.6],[.5,.15,2.6]);for(let z of [7.7,9.5])this.box('#5f4938',[-7.8,.25,z],[.3,.5,.15]);
   // Three dimensional balloon board at the game stall.
-  const board=new THREE.Group();board.position.set(10.6,2.15,12);board.rotation.y=-Math.PI/2;this.scene.add(board);this.box('#966b42',[0,0,0],[3.4,1.9,.12],board);this.box('#bd985d',[0,1,0],[3.7,.14,.2],board);this.box('#bd985d',[0,-1,0],[3.7,.14,.2],board);
+  const board=new THREE.Group();this.balloonBoard=board;board.name='balloon-target-board';board.position.set(10.6,2.15,12);board.rotation.y=-Math.PI/2;this.scene.add(board);this.box('#966b42',[0,0,0],[3.4,1.9,.12],board);this.box('#bd985d',[0,1,0],[3.7,.14,.2],board);this.box('#bd985d',[0,-1,0],[3.7,.14,.2],board);
   const colors=['#c4655a','#d7af56','#698e98','#9a759c','#79946a'];for(let row=0;row<2;row++)for(let col=0;col<5;col++){const bx=-1.25+col*.62,by=-.46+row*.88;this.ball(colors[(col+row)%5],[bx,by,.16],[.21,.29,.16],board,{roughness:.4});const knot=this.mesh('cone',colors[(col+row)%5],[bx,by-.29,.16],[.04,.07,.04],board);knot.rotation.z=Math.PI;}
   this.text('12 CORKS · AIM & FIRE',[0,-1.25,.15],3.1,.3,{bg:'#6a3c2c',font:'DM Sans',parent:board,size:75});
   // Balloon seller's bunch, each tethered to a hand.
@@ -170,9 +172,10 @@ export class PujoWorld {
   this.arch(0,5.8,.12,1.48,.12,red,w);for(let i=0;i<7;i++){const a=i*Math.PI/6;this.rod([0,5.8,.15],[Math.cos(a)*1.35,5.8+Math.sin(a)*1.35,.15],.025,'#665c46',w);}this.box('#e0c59b',[0,1.6,.2],[3.55,.16,.55],w);
  }
  batchPeople(people){
-  this.scene.updateMatrixWorld(true);const batches=new Map();for(const p of people){p.g.traverse(o=>{if(!o.isMesh)return;const key=o.geometry.uuid+o.material.uuid;const b=batches.get(key)||{geometry:o.geometry,material:o.material,matrices:[]};b.matrices.push(o.matrixWorld.clone());batches.set(key,b);});p.batched=true;p.g.visible=false;}
-  for(const b of batches.values()){const mesh=new THREE.InstancedMesh(b.geometry,b.material,b.matrices.length);mesh.name='instanced-visitors';b.matrices.forEach((m,i)=>mesh.setMatrixAt(i,m));this.scene.add(mesh);}
+  this.scene.updateMatrixWorld(true);const batches=new Map();for(const p of people){p.instances=[];p.g.traverse(object=>{if(!object.isMesh)return;const key=object.geometry.uuid+object.material.uuid,b=batches.get(key)||{geometry:object.geometry,material:object.material,entries:[]};b.entries.push({person:p,object});batches.set(key,b);});p.batched=true;p.g.visible=false;}
+  for(const b of batches.values()){const mesh=new THREE.InstancedMesh(b.geometry,b.material,b.entries.length);mesh.name='instanced-visitors';mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);b.entries.forEach(({person,object},index)=>{mesh.setMatrixAt(index,object.matrixWorld);person.instances.push({mesh,index,object});});this.scene.add(mesh);}
  }
+
  person(x,z,{outfit='#c18c54',sari=false,pose='idle',scale=1,rotation=0,hair='#292526',skin='#a77b57',priest=false}={}){
   const g=new THREE.Group();g.position.set(x,z<1?.4:0,z);g.rotation.y=rotation;g.scale.setScalar(scale);this.scene.add(g);
   const body=new THREE.Group();g.add(body);
@@ -193,7 +196,7 @@ export class PujoWorld {
   this.queuePeople=[];const initial=queueSnapshot(0);for(let i=0;i<9;i++){const q=initial.people[i],p=this.person(q.x,q.z,{outfit:colors[i%7],sari:i%3===0,rotation:q.yaw,scale:i===5?.78:.95});p.queueId=i;this.queuePeople.push(p);}
   this.person(3.4,1.7,{outfit:'#c6b494',rotation:.3});
   this.person(-3.2,17.8,{outfit:'#b75949',sari:true,rotation:.3});this.person(-4,18.3,{outfit:'#e1c798',rotation:2.2});this.person(-2.9,19.5,{outfit:'#6c8c85',scale:.6,rotation:2.7});
-  this.vendorPeople=new Map();for(const [id,x,z,sari] of [['tea',-10.55,10,false],['game',10.55,12,false],['fuchka',-10.55,19,false],['jhalmuri',-10.55,25,false],['mishti',10.55,25,true],['flowers',10.55,5.2,true]]){const p=this.person(x,z,{outfit:colors[this.vendorPeople.size],sari,rotation:x<0?Math.PI/2:-Math.PI/2});p.g.position.y=.22;p.vendor=true;this.vendorPeople.set(id,p);}
+  this.vendorPeople=new Map();for(const [id,x,z,sari] of [['tea',-10.55,10,false],['game',9.7,14.9,false],['fuchka',-10.55,19,false],['jhalmuri',-10.55,25,false],['mishti',10.55,25,true],['flowers',10.55,7,true]]){const p=this.person(x,z,{outfit:colors[this.vendorPeople.size],sari,rotation:x<0?Math.PI/2:-Math.PI/2});p.g.position.y=.22;p.vendor=true;this.vendorPeople.set(id,p);}
   this.person(7.6,19,{outfit:'#6e8a85',rotation:.1});
   const streetSpots=[[-7.2,23.8],[7.4,25.7],[7.8,24.6],[-7.6,8.7],[-6.8,8.3],[1.5,23],[-5.8,25.8],[3.5,21.4],[6.8,16],[-6,14],[-4.5,11.5],[2,26],[-2,25]];
   const staticPeople=[];streetSpots.forEach(([x,z],i)=>staticPeople.push(this.person(x,z,{outfit:colors[i%7],sari:i%3===0,scale:i===2?.65:1,rotation:i*.8})));
@@ -201,6 +204,7 @@ export class PujoWorld {
   const spots=[];for(const side of [-1,1])for(let row=0;row<6;row++)for(let col=0;col<3;col++){const x=side*(2.3+col*2.1),z=-3-row*2.15;if(Math.hypot(x+6.5,z+7.7)<1.3)continue;if([[-4.6,-7],[4.5,-7],[-5.4,-9],[5.4,-9],[-4.5,-11.5],[4.5,-11.5],[-6.8,-14],[6.8,-14],[-3,-15.5]].some(([a,b])=>Math.hypot(x-a,z-b)<.85))continue;spots.push([x,z]);}
   spots.push([-7.7,-15.8],[7.7,-15.8],[-5.8,-16],[5.8,-16],[-2.3,-16],[2.3,-16]);
   spots.forEach(([x,z],i)=>staticPeople.push(this.person(x,z,{outfit:colors[i%7],sari:i%3===0,pose:i%4===0?'photo':i%3===0?'pray':'idle',rotation:Math.PI+(i%3-.9)*.2,scale:i===8?.68:1})));
+  this.person(-3,-10,{outfit:'#867197',sari:true,pose:'photo',rotation:Math.PI});
   this.batchPeople(staticPeople);
   // Bengali priest, dhoti and uttariya, facing Maa and circling the arati lamp.
   const priest=this.person(.35,-17.5,{outfit:'#e6d6b4',priest:true,rotation:Math.PI,pose:'arati'});priest.arms[1].rotation.x=-1.3;
@@ -231,6 +235,10 @@ export class PujoWorld {
   this.canvas.addEventListener('pointermove',e=>{if(!this.drag)return;this.yaw-=(e.clientX-this.drag.x)*.004;this.pitch=Math.max(-.65,Math.min(.6,this.pitch-(e.clientY-this.drag.y)*.003));this.drag.x=e.clientX;this.drag.y=e.clientY;});
   const release=()=>{this.drag=null;};this.canvas.addEventListener('pointerup',release);this.canvas.addEventListener('pointercancel',release);
  }
+ characterPosition(id){return characterPosition(this,id);}
+ greet(id){greetPerson(this,id);}
+ startFireworks(){this.fireworks.elapsed=0;this.fireworks.active=true;this.fireworks.points.visible=true;updateFireworks(this,0);}
+ stopFireworks(){this.fireworks.active=false;this.fireworks.points.visible=false;}
  obstacles(){return this.people.map(p=>({x:p.g.position.x,z:p.g.position.z,radius:p.radius}));}
  joinQueue(onUpdate=()=>{}){this.stop();this.cancelMove();this.locked=true;return new Promise(resolve=>{this.queueRun={elapsed:0,resolve,onUpdate,released:false};});}
  updateQueue(dt){const run=this.queueRun;if(!run)return;run.elapsed+=dt;const snap=queueSnapshot(run.elapsed);this.queuePeople.forEach((p,i)=>{const q=snap.people[i];p.g.position.set(q.x,q.z<1?.4:0,q.z);p.g.rotation.y=q.yaw;if(!this.reduced){p.arms[0].rotation.x=Math.sin(run.elapsed*9+i)*.15;p.arms[1].rotation.x=-Math.sin(run.elapsed*9+i)*.15;}});
@@ -245,14 +253,14 @@ export class PujoWorld {
  frame(now){
   if(this.suspended){this.last=now;requestAnimationFrame(n=>this.frame(n));return;}
   const dt=Math.min((now-this.last)/1000,.05);this.last=now;const t=now/1000;
-  this.updateQueue(dt);
+  this.updateQueue(dt);updatePeople(this,dt);updateFireworks(this,dt);
   if(this.target){const tar=this.target,w=tar.waypoints[tar.index],from=this.camera.position,dist=Math.hypot(w.x-from.x,w.z-from.z),step=Math.min(dist,dt*5.5),next=moveAmongPeople(from,{x:from.x+(w.x-from.x)*step/(dist||1),z:from.z+(w.z-from.z)*step/(dist||1)},this.obstacles());from.x=next.x;from.z=next.z;from.y+=(tar.p.y-from.y)*Math.min(1,dt*5);const a=Math.atan2(Math.sin(tar.yaw-this.yaw),Math.cos(tar.yaw-this.yaw));this.yaw+=a*Math.min(1,dt*4);this.pitch+=(tar.pitch-this.pitch)*Math.min(1,dt*4);if(Math.hypot(from.x-w.x,from.z-w.z)<.035){if(tar.index<tar.waypoints.length-1)tar.index++;else if(Math.abs(a)<.01){this.target=null;tar.resolve();}}}
   if(this.started&&!this.locked&&this.keys.size){let forward=0,right=0;for(let k of this.keys){if(['w','arrowup','forward'].includes(k))forward++;if(['s','arrowdown','back'].includes(k))forward--;if(['d','arrowright','right'].includes(k))right++;if(['a','arrowleft','left'].includes(k))right--;}
    const norm=Math.hypot(forward,right)||1;const speed=dt*3.4;const x=this.camera.position.x+(-Math.sin(this.yaw)*forward+Math.cos(this.yaw)*right)*speed/norm,z=this.camera.position.z+(-Math.cos(this.yaw)*forward-Math.sin(this.yaw)*right)*speed/norm;const [nx,nz]=constrainWalk(x,z,this.hasEntered);const safe=moveAmongPeople(this.camera.position,{x:nx,z:nz},this.obstacles());this.camera.position.x=safe.x;this.camera.position.z=safe.z;this.camera.position.y+=( (nz<1?2.1:1.9)-this.camera.position.y)*dt*6;if(z<1&&!this.hasEntered)this.onMove?.('queue');
   }
   this.camera.rotation.set(this.pitch,this.yaw,0,'YXZ');
   if(this.companionBalloon){this.companionBalloon.position.x=Math.min(1.05,.68*2.05*Math.tan(this.camera.fov*Math.PI/360)*this.camera.aspect);if(!this.reduced){this.companionBalloon.position.y=.38+Math.sin(t*1.5)*.035;this.companionBalloon.rotation.z=Math.sin(t*.8)*.045;}}
-  for(const anim of this.animations)anim(t);if(!this.reduced)for(const p of this.people){if(p.batched)continue;p.body.position.y=Math.sin(t*1.4+p.seed)*.012;if(p.pose==='idle')p.body.rotation.y=Math.sin(t*.35+p.seed)*.04;}
+  for(const anim of this.animations)anim(t);
   this.renderer.render(this.scene,this.camera);this.onFrame?.(this.camera.position,t);requestAnimationFrame(n=>this.frame(n));
  }
  screenshot(){this.renderer.render(this.scene,this.camera);return this.canvas;}
