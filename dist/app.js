@@ -36,18 +36,16 @@ function begin({audio=true}={}){
  if(world?.renderer){world.started=true;world.go(PLACES[0].position,PLACES[0].look);}if(audio)sound(true);updateJourney();
 }
 function pauseInput(){state.inputPaused=true;world?.stop();}
-function resumeInput(){state.inputPaused=!!document.querySelector('dialog[open]')||!$('dialogue').classList.contains('hidden');if(world)world.suspended=!!document.querySelector('dialog[open]');}
+function resumeInput(){state.inputPaused=state.queuing||!!document.querySelector('dialog[open]')||!$('dialogue').classList.contains('hidden');if(world)world.suspended=!!document.querySelector('dialog[open]');}
 function openModal(id){closeDialogue();pauseInput();if(world)world.suspended=true;const dialog=$(id);if(!dialog.open)dialog.showModal();}
 function closeDialogue(){$('dialogue').classList.add('hidden');stopVoice();resumeInput();}
 async function speakCharacter(id,{explicit=false}={}){
  if(!state.sound&&!explicit)return;const character=CHARACTERS[id];if(!character)return;stopVoice();
- const audio=new Audio(`./assets/voices/${id}.mp3`);voiceAudio=audio;audio.volume=.95;$('dhak-audio').volume=.16;
+ const audio=new Audio(`./assets/voices-natural/${id}.mp3`);voiceAudio=audio;audio.volume=.95;$('dhak-audio').volume=.16;
  audio.onended=()=>{if(voiceAudio===audio){voiceAudio=null;$('dhak-audio').volume=.48;}};
  try{await audio.play();}catch{
   if(voiceAudio!==audio)return;$('dhak-audio').volume=.48;
-  const voices=window.speechSynthesis?.getVoices()||[];const names=character.gender==='female'?/tanishaa|nabanita|female/i:/bashkar|pradeep|\bmale\b/i;
-  const voice=voices.find(v=>/^bn/i.test(v.lang)&&names.test(v.name));
-  if(voice){const utterance=new SpeechSynthesisUtterance(character.bn);utterance.voice=voice;utterance.lang=voice.lang;window.speechSynthesis.speak(utterance);}else if(explicit)toast('Audio is unavailable here. The Bengali greeting and English translation are ready to read.');
+  if(explicit)toast('Audio is unavailable here. The Bengali greeting and English translation are ready to read.');
  }
 }
 function talk(id){
@@ -66,18 +64,22 @@ async function go(id){
 async function joinQueue(){
  begin({audio:false});closeDialogue();if(state.queuing)return;if(state.entered){await go('inside');return;}
  state.queuing=true;pauseInput();if(world)world.locked=true;$('next-moment').disabled=true;$('next-moment').textContent='Following the queue…';toast('You’ve joined the queue. Arjun will guide you inside.');
- if(world?.renderer){await world.go([5.6,1.9,14.8],[4.7,2,0]);await world.go([5.6,1.9,6.3],[2,2,-4]);await world.go([2,1.95,2],[0,3,-13]);world.hasEntered=true;await world.go([0,2.1,-6.5],[0,3.8,-20]);}
+ $('places').disabled=true;$('photo').disabled=true;
+ if(world?.renderer){const tail=PLACES.find(p=>p.id==='queue');await world.go(tail.position,tail.look);await world.joinQueue(snap=>{$('next-moment').textContent=snap.ahead?`${snap.ahead} people ahead · ${snap.moving?'Following the line…':'Waiting with the neighbours…'}`:'Your turn · stepping inside…';});}
+ $('places').disabled=false;$('photo').disabled=false;
+
  state.entered=true;state.queuing=false;if(world)world.locked=false;state.place='inside';mark('inside');$('next-moment').disabled=false;$('location').textContent='Inside the pandal';$('scene-caption').innerHTML='<span>03 — THE MANDAP</span><p>Stay a moment. The arati has begun.</p>';resumeInput();toast('শুভ শারদীয়া! Welcome inside. Stay a little and watch the arati.');
 }
 function openShop(shop){
+ if(state.queuing)return;
  const menu=STALL_MENUS[shop];if(!menu)return;openModal('market-modal');$('market-bn').textContent=menu.bn;$('market-title').textContent=menu.title;$('market-menu').replaceChildren();$('market-message').textContent='What would you like?';
  for(const item of menu.items){const button=document.createElement('button');button.className='menu-item';button.innerHTML=`<span class="menu-icon">${item.icon}</span><span><strong>${item.name}</strong><small lang="bn">${item.bn}</small><p>${item.description}</p></span><b>₹${item.price}<i>Take it ↗</i></b>`;button.setAttribute('aria-label',`Take a virtual ${item.name} for ${item.price} pretend rupees`);button.onclick=()=>purchase(shop,item);$('market-menu').append(button);}
 }
-function purchase(shop,item){state.purchases.push({shop,id:item.id,name:item.name,price:item.price});if(shop==='tea')mark('tea');$('market-message').textContent=`${item.name} is yours. শুভ শারদীয়া! Enjoy your little Puja treat.`;toast(`${item.name} · ₹${item.price} in pretend rupees. শুভ শারদীয়া!`);}
-function selectBalloon(hex,name){const choice=balloonChoice(hex,name);if(!choice)return;selectedBalloon=choice;$('shop-balloon').style.setProperty('--chosen-balloon',choice.hex);$('colour-name').textContent=choice.name;$('custom-colour').value=choice.hex;document.querySelectorAll('.colour-swatch').forEach(button=>button.setAttribute('aria-pressed',button.dataset.hex===choice.hex?'true':'false'));}
-function openBalloonShop(){begin({audio:false});openModal('balloon-modal');const choice=state.balloon||selectedBalloon;selectBalloon(choice.hex,choice.name);}
-function buyBalloon(){state.balloon={...selectedBalloon};world?.setCompanionBalloon?.(state.balloon.hex);$('balloon-companion').classList.remove('hidden');$('companion-dot').style.background=state.balloon.hex;$('change-balloon').textContent=`${state.balloon.name} balloon · Change`;$('balloon-modal').close();toast(`Your ${state.balloon.name.toLowerCase()} balloon will float beside you. শুভ শারদীয়া!`);}
-function releaseBalloon(){state.balloon=null;world?.setCompanionBalloon?.(null);$('balloon-companion').classList.add('hidden');toast('Balloon released. Ratan has plenty more colours whenever you like.');}
+function purchase(shop,item){if(state.queuing)return;state.purchases.push({shop,id:item.id,name:item.name,price:item.price});if(shop==='tea')mark('tea');$('market-message').textContent=`${item.name} is yours. শুভ শারদীয়া! Enjoy your little Puja treat.`;toast(`${item.name} · ₹${item.price} in pretend rupees. শুভ শারদীয়া!`);}
+function selectBalloon(hex,name){if(state.queuing||state.balloon)return;const choice=balloonChoice(hex,name);if(!choice)return;selectedBalloon=choice;$('shop-balloon').style.setProperty('--chosen-balloon',choice.hex);$('colour-name').textContent=choice.name;$('custom-colour').value=choice.hex;document.querySelectorAll('.colour-swatch').forEach(button=>button.setAttribute('aria-pressed',button.dataset.hex===choice.hex?'true':'false'));}
+function showCompanion(){if(!state.balloon)return;world?.setCompanionBalloon?.(state.balloon.hex);$('balloon-companion').classList.remove('hidden');$('companion-dot').style.background=state.balloon.hex;$('companion-name').textContent=`Your ${state.balloon.name.toLowerCase()} balloon`;}
+function openBalloonShop(){if(state.queuing)return;if(state.balloon){toast('You already have your balloon. Its colour is fixed for this visit.');return;}begin({audio:false});openModal('balloon-modal');selectBalloon(selectedBalloon.hex,selectedBalloon.name);}
+function buyBalloon(){if(state.queuing||state.balloon)return;state.balloon={...selectedBalloon};try{sessionStorage.setItem('pujo-balloon',JSON.stringify(state.balloon));}catch{}showCompanion();$('balloon-modal').close();toast(`Your ${state.balloon.name.toLowerCase()} balloon will float beside you. The colour is fixed for this visit.`);}
 let popContext=null;
 function effect(type='pop'){
  if(!state.sound)return;try{popContext??=new (window.AudioContext||window.webkitAudioContext)();popContext.resume();const c=popContext,o=c.createOscillator(),g=c.createGain();o.type=type==='pop'?'triangle':'sine';o.frequency.setValueAtTime(type==='pop'?480:170,c.currentTime);o.frequency.exponentialRampToValueAtTime(55,c.currentTime+.1);g.gain.setValueAtTime(type==='pop'?.13:.07,c.currentTime);g.gain.exponentialRampToValueAtTime(.001,c.currentTime+.12);o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+.13);}catch{}
@@ -89,6 +91,7 @@ function updateRange(round,meta){
  else if(round.shots<12)$('game-message').textContent=round.lastResult==='miss'?'A little wide! Aim slightly high and lead the balloon.':round.lastResult==='centre'?'Centre hit! Keep that streak going.':round.combo>1?'Keep that streak! Centre hits earn more points.':'The cork drops as it flies. Aim just above the balloon’s centre.';
 }
 function openGame(){
+ if(state.queuing)return;
  begin({audio:false});openModal('game-modal');$('game-message').textContent='Take your time. Your first shot starts here.';
  try{range??=new BalloonRange($('range-canvas'),{onUpdate:updateRange,onFinish:()=>mark('game'),onPop:()=>effect('pop'),onFire:()=>effect('fire')});range.start();$('range-canvas').focus({preventScroll:true});}catch(error){console.warn('Shooting range unavailable',error);$('game-modal').close();toast('The 3D shooting range needs WebGL. Try a browser with graphics acceleration enabled.');}
 }
@@ -96,6 +99,7 @@ function updatePostcard(){
  if(!postcardSnapshot)return;const name=postcardName($('postcard-name').value);const canvas=document.createElement('canvas');const data=drawPostcard(canvas,postcardSnapshot,name);$('postcard-image').src=data;$('download-postcard').href=data;$('download-postcard').download=name?`pujo-postcard-${name.replace(/[^\p{L}\p{M}\p{N}]+/gu,'-')}.png`:'a-kolkata-pujo-evening.png';
 }
 function postcard(){
+ if(state.queuing)return;
  begin({audio:false});if(!world?.renderer){toast('Postcards need the 3D view. You can still explore the neighbourhood stories.');return;}
  try{const source=world.screenshot();postcardSnapshot=document.createElement('canvas');postcardSnapshot.width=source.width;postcardSnapshot.height=source.height;postcardSnapshot.getContext('2d').drawImage(source,0,0);updatePostcard();openModal('postcard-modal');}catch(error){console.warn(error);toast('The postcard could not be saved in this browser. Try another view.');}
 }
@@ -109,10 +113,10 @@ $('next-moment').onclick=async()=>{if(!state.entered)return joinQueue();if(!stat
 for(const place of PLACES){const button=document.createElement('button');button.className='place-card';button.innerHTML=`<span>${place.number} · ${place.bn}</span><i>↗</i><h3>${place.title}</h3><p>${place.description}</p>`;button.onclick=async()=>{$('places-modal').close();await go(place.id);const character=place.id==='balloons'?'game':place.id;if(CHARACTERS[character]&&place.id!=='queue')talk(character);};$('place-grid').append(button);}
 const markerButtons=[];for(const [id,c] of Object.entries(CHARACTERS)){const button=document.createElement('button');button.className='marker';button.innerHTML=`<span>${c.icon}</span>${c.label}<span>↗</span>`;button.setAttribute('aria-label',`${c.label}: ${c.name}`);button.onclick=()=>talk(id);$('markers').append(button);markerButtons.push({id,c,button});}
 for(const colour of BALLOON_COLOURS){const button=document.createElement('button');button.className='colour-swatch';button.style.background=colour.hex;button.dataset.hex=colour.hex;button.setAttribute('aria-label',colour.name+' balloon');button.setAttribute('aria-pressed','false');button.onclick=()=>selectBalloon(colour.hex,colour.name);$('colour-swatches').append(button);}
-$('custom-colour').oninput=e=>selectBalloon(e.target.value,'Your custom colour');$('buy-balloon').onclick=buyBalloon;$('change-balloon').onclick=openBalloonShop;$('release-balloon').onclick=releaseBalloon;
+$('custom-colour').oninput=e=>selectBalloon(e.target.value,'Your custom colour');$('buy-balloon').onclick=buyBalloon;
 $('postcard-name').oninput=updatePostcard;$('restart-game').onclick=()=>{range?.restart();$('game-message').textContent='A fresh board. Take a breath and steady your aim.';};$('fire-cork').onclick=()=>range?.fire();
 addEventListener('keydown',e=>{
- if(e.target.matches('input,textarea,select'))return;const key=e.key.toLowerCase();if(key==='escape'){closeDialogue();return;}if(document.querySelector('dialog[open]'))return;if(key==='m'){e.preventDefault();openModal('places-modal');return;}if(state.inputPaused)return;
+ if(e.target.matches('input,textarea,select'))return;const key=e.key.toLowerCase();if(key==='escape'){closeDialogue();return;}if(document.querySelector('dialog[open]'))return;if(key==='m'&&!state.queuing){e.preventDefault();openModal('places-modal');return;}if(state.inputPaused)return;
  if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(key)){e.preventDefault();if(state.started&&!state.queuing)world?.setKey(key,true);}
  if(key==='e'&&state.started){const visible=markerButtons.filter(m=>m.button.style.display!=='none').sort((a,b)=>Number(a.button.dataset.distance)-Number(b.button.dataset.distance));if(visible[0])talk(visible[0].id);}
 });
@@ -126,3 +130,5 @@ function onFrame(position){
 }
 try{world=new PujoWorld($('world'),{onFrame,onMove:()=>{if(performance.now()-lastQueueNotice>7000){lastQueueNotice=performance.now();toast('Join the queue at the entrance to step inside the pandal.');}},onReady:ready,onFail:fail});}catch(error){fail(error);}
 addEventListener('pageshow',()=>world?.stop());updateJourney();selectBalloon(selectedBalloon.hex,selectedBalloon.name);
+
+try{const saved=JSON.parse(sessionStorage.getItem('pujo-balloon'));if(saved){const choice=balloonChoice(saved.hex,saved.name);if(choice){state.balloon=choice;showCompanion();}}}catch{}

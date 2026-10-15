@@ -1,0 +1,207 @@
+{
+  "engine": "Piper 1.8.0 / VITS ONNX neural speech",
+  "model": "rhasspy/piper-voices: bn/bn_BD/google/medium/bn_BD-google-medium.onnx",
+  "modelSha256": "f2e7518ed5534a755024a48c71b80bf617efaf12570bbdf3ce255a9526a8afd3",
+  "modelSource": "https://huggingface.co/rhasspy/piper-voices/tree/main/bn/bn_BD/google/medium",
+  "trainingData": "Google OpenSLR37 Indian Bengali (bn_IN) source speakers only",
+  "trainingDataSource": "https://www.openslr.org/37/",
+  "indianSpeakerProvenance": "Source IDs 1010 and 4811 are present as bin_<ID>_*.wav in https://www.openslr.org/resources/37/bn_in.zip; verified by archive central directory on 2026-10-15.",
+  "accentVerification": "Indian Bengali training provenance confirmed; Kolkata hometown and Kolkata accent have not been independently certified or reviewed by a native listener.",
+  "speakerPresentation": "Lower and higher voices are assigned to male/female characters; upstream metadata does not identify performers gender. No pitch shifting.",
+  "generatedAt": "2026-10-15",
+  "audioLicense": "CC-BY-SA-4.0",
+  "characters": {
+    "neighbour": {
+      "text": "শুভ শারদীয়া! পুজো ভালো কাটুক। এসো, আমাদের পাড়ার ঠাকুর দেখে যাও।",
+      "gender": "female",
+      "voice": "piper-bn-IN-4811",
+      "sourceSpeakerId": "4811",
+      "piperSpeakerId": 12,
+      "duration": 6.943,
+      "settings": {
+        "lengthScale": 1.0,
+        "noiseScale": 0.667,
+        "noiseW": 0.8,
+        "pitchShift": false
+      },
+      "generationSeconds": 0.534,
+      "originalWavBytes": 306220
+    },
+    "volunteer": {
+      "text": "শুভ শারদীয়া! একটু লাইনে দাঁড়ান। আরতি শুরু হয়েছে, ভেতরে আসুন।",
+      "gender": "male",
+      "voice": "piper-bn-IN-1010",
+      "sourceSpeakerId": "1010",
+      "piperSpeakerId": 7,
+      "duration": 5.41,
+      "settings": {
+        "lengthScale": 1.0,
+        "noiseScale": 0.667,
+        "noiseW": 0.8,
+        "pitchShift": false
+      },
+      "generationSeconds": 0.434,
+      "originalWavBytes": 238636
+    },
+    "dhaki": {
+      "text": "শুভ শারদীয়া! ঢাকের তালে তালে পুজো জমে উঠুক। দাঁড়াও, আর একটা বোল শোনাই!",
+      "gender": "male",
+      "voice": "piper-bn-IN-1010",
+      "sourceSpeakerId": "1010",
+      "piperSpeakerId": 7,
+      "duration": 6.455,
+      "settings": {
+        "lengthScale": 1.0,
+        "noiseScale": 0.667,
+        "noiseW": 0.8,
+        "pitchShift": false
+      },
+      "generationSeconds": 0.507,
+      "originalWavBytes": 284716
+    },
+    "priest": {
+      "text": "শুভ শারদীয়া। মা দুর্গা সবার মঙ্গল করুন। একটু দাঁড়িয়ে আরতি দেখুন।",
+      "gender": "male",
+      "voice": "piper-bn-IN-1010",
+      "sourceSpeakerId": "1010",
+      "piperSpeakerId": 7,
+      "duration": 5.573,
+      "settings": {
+        "lengthScale": 1.0,
+        "noiseScale": 0.667,
+        "noiseW": 0.8,
+        "pitchShift": false
+      },
+      "generationSeconds": 0.408,
+      "originalWavBytes": 245804
+    },
+    "tea": {
+      "text": "শুভ শারদীয়া! এক ভাঁড় গরম চা হবে? ঠাকুর দেখে এসে একটু বসো।",
+      "gender": "male",
+      "voice": "piper-bn-IN-1010",
+      "sourceSpeakerId": "1010",
+      "piperSpeakerId": 7,
+      "duration": 5.283,
+      "settings": {
+        "lengthScale": 1.0,
+        "noiseScale": 0.667,
+        "noiseW": 0.8,
+        "pitchShift": false
+      },
+      "generationSeconds": 0.412,
+      "originalWavBytes": 233004
+    },
+    "seller": {
+      "text": "শুভ শারদীয়া! লাল, নীল, হলুদ—কোন বেলুনটা নেবে? পুজোর আনন্দ সবার জন্য!",
+      "gender": "male",
+      "voice": "piper-bn-IN-1010",
+      "sourceSpeakerId": "1010",
+      "piperSpeakerId": 7,
+      "duration": 6.095,
+      "settings": {
+        "lengthScale": 1.0,
+        "noiseScale": 0.667,
+        "noiseW": 0.8,
+        "pitchShift": false
+      },
+      "generationSeconds": 0.556,
+      "originalWavBytes": 268844
+    },
+    "game": {
+      "text": "শুভ শারদীয়া! বেলুন ফাটাবে? বারোটা সুযোগ আর পঁয়তাল্লিশ সেকেন্ড। দেখি তোমার নিশানা কেমন!",
+      "gender": "male",
+      "voice": "piper-bn-IN-1010",
+      "sourceSpeakerId": "1010",
+      "piperSpeakerId": 7,
+      "duration": 7.477,
+      "settings": {
+        "lengthScale": 1.0,
+        "noiseScale": 0.667,
+        "noiseW": 0.8,
+        "pitchShift": false
+      },
+      "generationSeconds": 0.639,
+      "originalWavBytes": 329772
+    },
+    "photographer": {
+      "text": "শুভ শারদীয়া! প্রতিমাটা কী সুন্দর, তাই না? একটা ছবি তুলে রাখি।",
+      "gender": "female",
+      "voice": "piper-bn-IN-4811",
+      "sourceSpeakerId": "4811",
+      "piperSpeakerId": 12,
+      "duration": 6.502,
+      "settings": {
+        "lengthScale": 1.0,
+        "noiseScale": 0.667,
+        "noiseW": 0.8,
+        "pitchShift": false
+      },
+      "generationSeconds": 0.471,
+      "originalWavBytes": 286764
+    },
+    "fuchka": {
+      "text": "শুভ শারদীয়া! টক ঝাল ফুচকা হবে? তোমার জন্য একটা পাতা সাজিয়ে দিই।",
+      "gender": "male",
+      "voice": "piper-bn-IN-1010",
+      "sourceSpeakerId": "1010",
+      "piperSpeakerId": 7,
+      "duration": 5.364,
+      "settings": {
+        "lengthScale": 1.0,
+        "noiseScale": 0.667,
+        "noiseW": 0.8,
+        "pitchShift": false
+      },
+      "generationSeconds": 0.459,
+      "originalWavBytes": 236588
+    },
+    "jhalmuri": {
+      "text": "শুভ শারদীয়া! ঝালমুড়ি নেবে? বাদাম আর লেবু দিয়ে মেখে দিচ্ছি।",
+      "gender": "male",
+      "voice": "piper-bn-IN-1010",
+      "sourceSpeakerId": "1010",
+      "piperSpeakerId": 7,
+      "duration": 4.899,
+      "settings": {
+        "lengthScale": 1.0,
+        "noiseScale": 0.667,
+        "noiseW": 0.8,
+        "pitchShift": false
+      },
+      "generationSeconds": 0.344,
+      "originalWavBytes": 216108
+    },
+    "mishti": {
+      "text": "শুভ শারদীয়া! নলেন গুড়ের সন্দেশ আর রসগোল্লা নেবে? একটু মিষ্টিমুখ করে যাও।",
+      "gender": "female",
+      "voice": "piper-bn-IN-4811",
+      "sourceSpeakerId": "4811",
+      "piperSpeakerId": 12,
+      "duration": 7.674,
+      "settings": {
+        "lengthScale": 1.0,
+        "noiseScale": 0.667,
+        "noiseW": 0.8,
+        "pitchShift": false
+      },
+      "generationSeconds": 0.542,
+      "originalWavBytes": 338476
+    },
+    "flowers": {
+      "text": "শুভ শারদীয়া! পুজোর ফুলের ঝুড়ি নেবেন? ছোট, মাঝারি আর বড়—তিন রকম আছে।",
+      "gender": "female",
+      "voice": "piper-bn-IN-4811",
+      "sourceSpeakerId": "4811",
+      "piperSpeakerId": 12,
+      "duration": 7.732,
+      "settings": {
+        "lengthScale": 1.0,
+        "noiseScale": 0.667,
+        "noiseW": 0.8,
+        "pitchShift": false
+      },
+      "generationSeconds": 0.498,
+      "originalWavBytes": 341036
+    }
+  }
+}
