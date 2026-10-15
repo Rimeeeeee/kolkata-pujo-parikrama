@@ -27,10 +27,9 @@ for cid,c in dialogue.items():
     speaker='4811' if sid==12 else '1010'
     path=output/f'{cid}.wav'
     start=time.time()
-    spoken=c.get('speechBn',c['bn'].replace('শুভ','শুভো'))
     with wave.open(str(path),'wb') as wav:
-        voice.synthesize_wav(spoken,wav,SynthesisConfig(speaker_id=sid,length_scale=1.0,noise_scale=.667,noise_w_scale=.8))
+        voice.synthesize_wav(c['bn'],wav,SynthesisConfig(speaker_id=sid,length_scale=1.0,noise_scale=.667,noise_w_scale=.8))
     with wave.open(str(path),'rb') as wav:duration=wav.getnframes()/wav.getframerate()
-    manifest['characters'][cid]={'text':c['bn'],'spokenText':spoken,'pronunciationNote':'Explicit শুভো (Shubho) vowel for Bengali greeting','gender':c['gender'],'voice':f'piper-bn-IN-{speaker}','sourceSpeakerId':speaker,'piperSpeakerId':sid,'duration':round(duration,3),'settings':{'lengthScale':1.0,'noiseScale':.667,'noiseW':.8,'pitchShift':False},'generationSeconds':round(time.time()-start,3),'originalWavBytes':path.stat().st_size}
+    manifest['characters'][cid]={'text':c['bn'],'gender':c['gender'],'voice':f'piper-bn-IN-{speaker}','sourceSpeakerId':speaker,'piperSpeakerId':sid,'duration':round(duration,3),'settings':{'lengthScale':1.0,'noiseScale':.667,'noiseW':.8,'pitchShift':False},'generationSeconds':round(time.time()-start,3),'originalWavBytes':path.stat().st_size}
     print(cid,round(duration,2),flush=True)
 (output/'manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n',encoding='utf8')

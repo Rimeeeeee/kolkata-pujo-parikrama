@@ -43,12 +43,14 @@ export function installPeopleLife(w){
  }
  for(const p of w.people){
   p.home=p.g.position.clone();p.restYaw=p.g.rotation.y;p.restArms=p.arms.map(a=>a.rotation.clone());
-  if(p.characterId){const gesture=new THREE.Group();gesture.name='namaskar-hands';gesture.visible=false;p.body.add(gesture);p.gesture=gesture;p.gestureRods=Array.from({length:4},()=>w.cyl(p.skin,[0,0,0],[.06,.3,.06],gesture));p.palms=[-1,1].map(side=>w.ball(p.skin,[side*.025,1.45,.36],[.028,.105,.06],gesture));}
+  p.head=new THREE.Group();p.head.position.y=1.68;const parts=p.body.children.filter(o=>o.position.y>=1.65);p.body.add(p.head);for(const o of parts){o.position.y-=1.68;p.head.add(o);}
+  p.legs=[];for(const side of [-1,1]){const parts=p.body.children.filter(o=>o.isMesh&&o.position.y<.4&&Math.sign(o.position.x)===side);if(parts.length){const leg=new THREE.Group();leg.position.set(side*.12,.39,0);p.body.add(leg);for(const part of parts){part.position.sub(leg.position);leg.add(part);}p.legs.push(leg);}}
+  if(p.characterId){const gesture=new THREE.Group();gesture.name='namaskar-hands';gesture.visible=false;p.body.add(gesture);p.gesture=gesture;p.gestureRods=Array.from({length:4},()=>w.cyl('#a77b57',[0,0,0],[.06,.3,.06],gesture));p.palms=[-1,1].map(side=>w.ball('#a77b57',[side*.025,1.45,.36],[.028,.105,.06],gesture));}
  }
  const walkers=w.people.filter(p=>p.batched&&p.g.position.z>20).slice(-3);for(const [i,p] of walkers.entries()){p.walkPoints=[{x:p.home.x,z:p.home.z},{x:p.home.x+(p.home.x>0?-.8:.8),z:p.home.z-1.2}];p.walkIndex=i%2;p.walkWait=i*1.1;}
 }
 
-export function greetPerson(w,id){const p=w.characters.get(id);if(!p)return;if(['arati','dhak'].includes(p.pose)){p.nodUntil=w.lifeTime+2;w.conversationId=id;return;}p.greetingUntil=w.lifeTime+4.5;p.greetingStart=w.lifeTime;w.conversationId=id;}
+export function greetPerson(w,id){const p=w.characters.get(id);if(!p)return;p.greetingUntil=w.lifeTime+4.5;p.greetingStart=w.lifeTime;w.conversationId=id;}
 export function characterPosition(w,id){const p=w.characters.get(id);return p?[p.g.position.x,p.g.position.y+2.22*p.g.scale.y,p.g.position.z]:null;}
 
 export function updatePeople(w,dt){
@@ -61,7 +63,6 @@ export function updatePeople(w,dt){
    p.legs.forEach((leg,i)=>leg.rotation.x=p.walking?Math.sin(t*6+i*Math.PI)*.35:0);
    if(['idle','photo','pray'].includes(p.pose))for(let i=0;i<2;i++){p.arms[i].rotation.x=p.restArms[i].x+Math.sin(phase*(p.walking?6:1.15)+i*Math.PI)*(p.walking?.3:.055);p.arms[i].rotation.z=p.restArms[i].z+Math.sin(phase*.8+i)*.035;}
   }
-  if(p.pose==='arati'){p.g.rotation.y=Math.atan2(-p.g.position.x,-21.25-p.g.position.z);if(p.nodUntil>t)p.head.rotation.x=.06;}
   if(p.gesture){p.gesture.visible=greeting>0;p.arms.forEach(a=>a.visible=!greeting);if(greeting){const age=t-p.greetingStart,k=w.reduced?1:Math.min(1,age/.55,greeting/.55);const facing=Math.atan2(w.camera.position.x-p.g.position.x,w.camera.position.z-p.g.position.z);p.g.rotation.y=facing;p.head.rotation.x=.12*k;for(let sideIndex=0;sideIndex<2;sideIndex++){const side=sideIndex?1:-1,shoulder=new THREE.Vector3(side*.23,1.48,0),elbow=new THREE.Vector3(side*.32,1.09,.19*k),hand=new THREE.Vector3(side*(.31*(1-k)+.025*k),1.02+.43*k,.045+.315*k);p.palms[sideIndex].position.copy(hand);const points=[[shoulder,elbow],[elbow,hand]];points.forEach(([a,b],j)=>{const rod=p.gestureRods[sideIndex*2+j],v=b.clone().sub(a);rod.position.copy(a).add(b).multiplyScalar(.5);rod.scale.y=v.length();rod.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),v.normalize());});}}}
   if(p.batched&&refresh){p.g.updateWorldMatrix(true,true);for(const ref of p.instances||[]){ref.mesh.setMatrixAt(ref.index,ref.object.matrixWorld);ref.mesh.instanceMatrix.needsUpdate=true;}}
  }

@@ -5,15 +5,10 @@ import {BALLOON_COLOURS,balloonChoice,newRangeRound,postcardName} from './fairgr
 import {BalloonRange} from './balloon-range.js';
 import {drawPostcard} from './postcard.js';
 import {withinReach} from './interaction.js';
-import {queueSnapshot} from './movement.js';
-import {PHOTO_SPOT,drawPortraitCard} from './photo-booth.js';
-import {ConchAmbience} from './conch-audio.js';
 
 const $=id=>document.getElementById(id);
 const state={started:false,entered:false,queuing:false,sound:false,moments:new Set(),round:newRangeRound(),currentCharacter:null,place:'street',inputPaused:false,balloon:null,purchases:[],shop:null,watchingFireworks:false};
-let world=null,range=null,toastTimer=0,lastQueueNotice=0,voiceAudio=null,postcardSnapshot=null,portraitSnapshot=null;
-const portraitOptions={outfit:'sari',pose:'namaskar'};
-const conchAmbience=new ConchAmbience();
+let world=null,range=null,toastTimer=0,lastQueueNotice=0,voiceAudio=null,postcardSnapshot=null;
 let selectedBalloon=balloonChoice(BALLOON_COLOURS[0].hex,BALLOON_COLOURS[0].name);
 function toast(message){clearTimeout(toastTimer);$('toast').textContent=message;$('toast').classList.add('show');toastTimer=setTimeout(()=>$('toast').classList.remove('show'),4300);}
 function ready(){$('loading').classList.add('done');setTimeout(()=>$('loading').remove(),700);}
@@ -32,7 +27,6 @@ function updateJourney(){
 }
 function stopVoice(){if(voiceAudio){voiceAudio.pause();voiceAudio=null;}window.speechSynthesis?.cancel();$('dhak-audio').volume=.48;}
 async function sound(on){
- if(!on)conchAmbience.stop();
  state.sound=on;const audio=$('dhak-audio');audio.volume=.48;
  if(on){try{await audio.play();}catch{state.sound=false;toast('Tap Sound again to start the dhak.');}}else{audio.pause();stopVoice();}
  $('sound').setAttribute('aria-label',state.sound?'Mute dhak sound':'Turn on dhak sound');$('sound').querySelector('span').textContent=state.sound?'Dhak on':'Sound off';$('sound').style.borderColor=state.sound?'#c9a36d':'';
@@ -74,9 +68,9 @@ async function go(id){
 async function joinQueue(){
  begin({audio:false});closeDialogue();if(state.queuing)return;if(state.entered){await go('inside');return;}
  state.queuing=true;pauseInput();if(world)world.locked=true;$('next-moment').disabled=true;$('next-moment').textContent='Following the queue…';toast('You’ve joined the queue. Arjun will guide you inside.');
- $('places').disabled=true;$('photo').disabled=true;$('fireworks').disabled=true;$('dress-up').disabled=true;
- if(world?.renderer){const tail=queueSnapshot(0).player;await world.go([tail.x,1.9,tail.z],[tail.x,1.8,tail.z-3]);await world.joinQueue(snap=>{$('next-moment').textContent=snap.ahead?`${snap.ahead} people ahead · ${snap.moving?'Following the line…':'Waiting with the neighbours…'}`:'Your turn · stepping inside…';});}
- $('places').disabled=false;$('photo').disabled=false;$('fireworks').disabled=false;$('dress-up').disabled=false;
+ $('places').disabled=true;$('photo').disabled=true;$('fireworks').disabled=true;
+ if(world?.renderer){const tail=PLACES.find(p=>p.id==='queue');await world.go(tail.position,tail.look);await world.joinQueue(snap=>{$('next-moment').textContent=snap.ahead?`${snap.ahead} people ahead · ${snap.moving?'Following the line…':'Waiting with the neighbours…'}`:'Your turn · stepping inside…';});}
+ $('places').disabled=false;$('photo').disabled=false;$('fireworks').disabled=false;
 
  state.entered=true;state.queuing=false;if(world)world.locked=false;state.place='inside';mark('inside');$('next-moment').disabled=false;$('location').textContent='Inside the pandal';$('scene-caption').innerHTML='<span>03 — THE MANDAP</span><p>Stay a moment. The arati has begun.</p>';resumeInput();toast('শুভ শারদীয়া! Welcome inside. Stay a little and watch the arati.');
 }
@@ -113,10 +107,6 @@ function postcard(){
  begin({audio:false});if(!world?.renderer){toast('Postcards need the 3D view. You can still explore the neighbourhood stories.');return;}
  try{const source=world.screenshot();postcardSnapshot=document.createElement('canvas');postcardSnapshot.width=source.width;postcardSnapshot.height=source.height;postcardSnapshot.getContext('2d').drawImage(source,0,0);updatePostcard();openModal('postcard-modal');}catch(error){console.warn(error);toast('The postcard could not be saved in this browser. Try another view.');}
 }
-function nearPhotoBooth(){return world?.renderer&&withinReach(world.camera.position,{x:PHOTO_SPOT.camera[0],z:PHOTO_SPOT.camera[2]},{entered:state.entered,queuing:state.queuing});}
-function updatePortraitCard(){if(!portraitSnapshot)return;const name=postcardName($('portrait-name').value),canvas=document.createElement('canvas');const url=drawPortraitCard(canvas,portraitSnapshot,name,portraitOptions.outfit);$('portrait-image').src=url;$('download-portrait').href=url;$('download-portrait').download=`kolkata-pujo-${portraitOptions.outfit}${name?'-'+name.replace(/[^\p{L}\p{M}\p{N}]+/gu,'-'):''}.png`;}
-function takePortrait(){if(!nearPhotoBooth()){toast('Come closer to the camera to take your Puja portrait.');return;}portraitOptions.outfit=$('portrait-outfit').value||'sari';portraitOptions.pose=$('portrait-pose').value||'namaskar';try{portraitSnapshot=world.capturePortrait(portraitOptions);updatePortraitCard();$('portrait-message').textContent='Your portrait is ready. The pandal is behind you. Save it below.';}catch(error){console.warn('Portrait unavailable',error);$('portrait-message').textContent='The portrait could not be rendered. Try again in a browser with graphics acceleration.';}}
-async function openPhotoBooth({walk=true}={}){if(state.queuing)return;begin({audio:false});if(!world?.renderer){toast('Dress-up portraits need the 3D view.');return;}closeDialogue();if(walk){$('postcard-modal').close();await go('portrait');}if(!nearPhotoBooth()){toast('Walk up to the tripod camera in front of the pandal.');return;}openModal('portrait-modal');takePortrait();}
 async function watchFireworks(){
  if(state.queuing)return;begin({audio:false});closeDialogue();
  if(!world?.renderer){toast('Fireworks need the 3D view.');return;}
@@ -124,32 +114,29 @@ async function watchFireworks(){
  const p=world.camera.position;fireworksReturn={position:[p.x,p.y,p.z],look:[p.x-Math.sin(world.yaw)*10,p.y+Math.sin(world.pitch)*10,p.z-Math.cos(world.yaw)*10]};state.watchingFireworks=true;$('fireworks').setAttribute('aria-pressed','true');$('fireworks').querySelector('span').textContent='Back to Puja';await world.go([0,2,24],[0,14,48]);if(state.watchingFireworks)world.startFireworks();
 }
 let fireworksReturn=null;
-$('begin').onclick=()=>begin();$('dress-up').onclick=()=>openPhotoBooth();$('portrait-outfit').onchange=takePortrait;$('portrait-pose').onchange=takePortrait;$('take-portrait').onclick=takePortrait;$('portrait-name').oninput=updatePortraitCard;$('postcard-dress-up').onclick=()=>openPhotoBooth();$('fireworks').onclick=watchFireworks;$('sound').onclick=()=>sound(!state.sound);$('guide').onclick=()=>openModal('guide-modal');$('places').onclick=()=>openModal('places-modal');$('fallback-explore').onclick=()=>openModal('places-modal');$('references').onclick=()=>{$('guide-modal').close();openModal('credits-modal');};$('photo').onclick=postcard;
+$('begin').onclick=()=>begin();$('fireworks').onclick=watchFireworks;$('sound').onclick=()=>sound(!state.sound);$('guide').onclick=()=>openModal('guide-modal');$('places').onclick=()=>openModal('places-modal');$('fallback-explore').onclick=()=>openModal('places-modal');$('references').onclick=()=>{$('guide-modal').close();openModal('credits-modal');};$('photo').onclick=postcard;
 document.querySelector('.brand').onclick=e=>{e.preventDefault();go('street');};
 document.querySelectorAll('[data-close]').forEach(button=>button.onclick=()=>button.closest('dialog').close());
 document.querySelectorAll('dialog').forEach(dialog=>{dialog.addEventListener('close',()=>{if(dialog.id==='game-modal')range?.stop();resumeInput();});dialog.addEventListener('click',event=>{if(event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)dialog.close();}});});
 $('close-dialogue').onclick=closeDialogue;$('translate').onclick=()=>{const hidden=$('dialogue-en').classList.toggle('hidden');$('translate').textContent=hidden?'Translate to English ↗':'Hide English translation ↑';};$('listen').onclick=()=>speakCharacter(state.currentCharacter?.id,{explicit:true});
 $('dialogue-action').onclick=()=>{const c=state.currentCharacter;if(!c)return;if(c.do==='queue')joinQueue();if(c.do==='shop')openShop(c.shop);if(c.do==='balloon')openBalloonShop();if(c.do==='game')openGame();};
 $('next-moment').onclick=async()=>{if(!state.entered)return joinQueue();if(!state.moments.has('dhaki')){await go('dhaki');talk('dhaki');}else if(!state.moments.has('tea')){await go('tea');talk('tea');}else if(!state.moments.has('game')){await go('balloons');talk('game');}else if(!state.moments.has('greeting')){await go('street');await approach('neighbour');talk('neighbour');}else postcard();};
-for(const place of PLACES){const button=document.createElement('button');button.className='place-card';button.innerHTML=`<span>${place.number} · ${place.bn}</span><i>↗</i><h3>${place.title}</h3><p>${place.description}</p>`;button.onclick=async()=>{$('places-modal').close();await go(place.id);if(place.id==='portrait'){await openPhotoBooth({walk:false});return;}const character=place.id==='balloons'?'game':place.id==='queue'?'volunteer':place.id;if(CHARACTERS[character])talk(character);};$('place-grid').append(button);}
+for(const place of PLACES){const button=document.createElement('button');button.className='place-card';button.innerHTML=`<span>${place.number} · ${place.bn}</span><i>↗</i><h3>${place.title}</h3><p>${place.description}</p>`;button.onclick=async()=>{$('places-modal').close();await go(place.id);const character=place.id==='balloons'?'game':place.id;if(CHARACTERS[character]&&place.id!=='queue')talk(character);};$('place-grid').append(button);}
 const markerButtons=[];for(const [id,c] of Object.entries(CHARACTERS)){const button=document.createElement('button');button.className='marker';button.innerHTML=`<span>${c.icon}</span>Talk to ${c.name.split(' · ')[0]}<span>↗</span>`;button.style.display='none';button.setAttribute('aria-label',`${c.label}: ${c.name}`);button.onclick=()=>talk(id);$('markers').append(button);markerButtons.push({id,c,button});}
-const portraitMarker=document.createElement('button');portraitMarker.className='marker';portraitMarker.innerHTML='<span>▣</span>Dress up & pose<span>↗</span>';portraitMarker.setAttribute('aria-label','Dress in a sari or dhoti kurta and take a photo with the pandal behind you');portraitMarker.style.display='none';portraitMarker.onclick=()=>openPhotoBooth({walk:false});$('markers').append(portraitMarker);
 for(const colour of BALLOON_COLOURS){const button=document.createElement('button');button.className='colour-swatch';button.style.background=colour.hex;button.dataset.hex=colour.hex;button.setAttribute('aria-label',colour.name+' balloon');button.setAttribute('aria-pressed','false');button.onclick=()=>selectBalloon(colour.hex,colour.name);$('colour-swatches').append(button);}
 $('custom-colour').oninput=e=>selectBalloon(e.target.value,'Your custom colour');$('buy-balloon').onclick=buyBalloon;
 $('postcard-name').oninput=updatePostcard;$('restart-game').onclick=()=>{range?.restart();$('game-message').textContent='A fresh board. Take a breath and steady your aim.';};$('fire-cork').onclick=()=>range?.fire();
 addEventListener('keydown',e=>{
  if(e.target.matches('input,textarea,select'))return;const key=e.key.toLowerCase();if(key==='escape'){closeDialogue();return;}if(document.querySelector('dialog[open]'))return;if(key==='m'&&!state.queuing){e.preventDefault();openModal('places-modal');return;}if(state.inputPaused)return;
  if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(key)){e.preventDefault();if(state.started&&!state.queuing)world?.setKey(key,true);}
- if(key==='e'&&state.started){const visible=markerButtons.filter(m=>m.button.style.display!=='none').sort((a,b)=>Number(a.button.dataset.distance)-Number(b.button.dataset.distance));if(visible[0])talk(visible[0].id);else if(portraitMarker.style.display!=='none')openPhotoBooth({walk:false});}
+ if(key==='e'&&state.started){const visible=markerButtons.filter(m=>m.button.style.display!=='none').sort((a,b)=>Number(a.button.dataset.distance)-Number(b.button.dataset.distance));if(visible[0])talk(visible[0].id);}
 });
 addEventListener('keyup',e=>world?.setKey(e.key.toLowerCase(),false));addEventListener('blur',()=>world?.stop());
 for(const button of document.querySelectorAll('[data-walk]')){const release=()=>world?.setKey(button.dataset.walk,false);button.onpointerdown=e=>{e.preventDefault();if(!state.inputPaused&&!state.queuing){world?.setKey(button.dataset.walk,true);button.setPointerCapture(e.pointerId);}};button.onpointerup=release;button.onpointercancel=release;button.onlostpointercapture=release;}
-document.addEventListener('visibilitychange',()=>{world?.stop();if(document.hidden){$('dhak-audio').pause();stopVoice();conchAmbience.stop();}else if(state.sound)$('dhak-audio').play().catch(()=>sound(false));});
+document.addEventListener('visibilitychange',()=>{world?.stop();if(document.hidden){$('dhak-audio').pause();stopVoice();}else if(state.sound)$('dhak-audio').play().catch(()=>sound(false));});
 function onFrame(position){
  if(!world?.renderer||!state.started)return;const occupied=[];
- conchAmbience.update({enabled:state.sound&&!document.hidden&&!voiceAudio,position,performer:world.conchPerson?.g.position,time:performance.now()/1000});
  for(const m of markerButtons){const anchor=personPosition(m.id),p=world.project(anchor),d=Math.hypot(position.x-anchor[0],position.z-anchor[2]);let visible=p.visible&&canInteract(m.id);if(visible&&occupied.some(q=>Math.abs(q.x-p.x)<150&&Math.abs(q.y-p.y)<48))visible=false;if(visible)occupied.push(p);m.button.style.display=visible?'flex':'none';if(visible){m.button.style.left=`${p.x}px`;m.button.style.top=`${p.y}px`;m.button.dataset.distance=d;}}
- const pp=world.project([0,2.25,14.5]);portraitMarker.style.display=pp.visible&&nearPhotoBooth()?'flex':'none';if(pp.visible){portraitMarker.style.left=`${pp.x}px`;portraitMarker.style.top=`${pp.y}px`;}
  if(state.currentCharacter&&!$('dialogue').classList.contains('hidden')&&!canInteract(state.currentCharacter.id))closeDialogue();
 
  if(!world.target&&!state.queuing)$('location').textContent=position.z<0?'Inside the pandal':position.x<-6?'The cha & street food lane':position.x>6?'The fairground & mishti corner':'The neighbourhood lane';

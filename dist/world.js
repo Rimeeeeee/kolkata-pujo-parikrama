@@ -1,7 +1,4 @@
 import * as THREE from './assets/three.module.js';
-import {createHuman} from './human.js';
-import {buildRitualExtras} from './rituals.js';
-import {buildPhotoBooth,capturePortrait} from './photo-booth.js';
 import {constrainWalk} from './game-state.js';
 import {queueSnapshot,moveAmongPeople,crowdPath} from './movement.js';
 import {buildStreetDetails,installPeopleLife,greetPerson,characterPosition,updatePeople,createFireworks,updateFireworks} from './scene-life.js';
@@ -16,7 +13,7 @@ export class PujoWorld {
   this.materials=new Map();this.geometries={box:new THREE.BoxGeometry(1,1,1),sphere:new THREE.SphereGeometry(1,12,8),cylinder:new THREE.CylinderGeometry(1,1,1,12),cone:new THREE.ConeGeometry(1,1,12)};
   this.scene.add(new THREE.HemisphereLight('#dad0e8','#59402c',2.2));const moon=new THREE.DirectionalLight('#fff1d4',2.5);moon.position.set(-8,16,13);this.scene.add(moon);
   this.point('#ffb15b',100,25,0,6,-8);this.point('#ffc86d',65,24,0,7,3);this.point('#ffb35c',55,14,-10,3.5,10);this.point('#ffce8b',40,12,10,3,12);
-  this.buildStreet();buildStreetDetails(this);this.batchStreet();this.buildPandal();this.buildStalls();this.buildPeople();buildRitualExtras(this);this.buildAtmosphere();installPeopleLife(this);this.batchPeople([...this.queuePeople,...this.extraDhakis,this.conchPerson]);buildPhotoBooth(this);createFireworks(this);this.bind();this.last=performance.now();this.frame(performance.now());
+  this.buildStreet();buildStreetDetails(this);this.batchStreet();this.buildPandal();this.buildStalls();this.buildPeople();this.buildAtmosphere();installPeopleLife(this);createFireworks(this);this.bind();this.last=performance.now();this.frame(performance.now());
   document.fonts?.ready.then(()=>{for(const refresh of this.textRefresh||[])refresh();});
   this.onReady();
  }
@@ -66,7 +63,6 @@ export class PujoWorld {
   for(let z=-21;z<=1;z+=1.5)this.line([[-10.2,.39,z],[10.2,.39,z]],'#b3946b');for(let x=-9;x<=9;x+=1.5)this.line([[x,.39,-21],[x,.39,1]],'#b3946b');
   // Rice-paste lotus alpona: large, flat textures keep intricate linework inexpensive.
   this.alponas=[];for(const [z,size] of [[-6,6.4],[-13,5.2],[2.6,4.2]])this.alpona(z,size);
-  this.alpona(5.9,4.2,0);for(const side of [-1,1])for(const z of [7.6,10.8,19.7,25.6])this.alpona(z,1.7,side*8.15);for(const x of [3.2,6.2])for(const z of [5,8,11,14])this.alpona(z,.9,x);
   // Cream courtyard walls with red pilasters and classical Bengali arched bays.
   for(const side of [-1,1]){
    this.box(cream,[side*10.4,4.3,-10.5],[.5,8,22]);this.box(deep,[side*10.06,1,-10.5],[.12,1.2,22]);
@@ -161,13 +157,12 @@ export class PujoWorld {
  batchStreet(){
   this.scene.updateMatrixWorld(true);const groups=new Map();this.scene.traverse(o=>{if(!o.isMesh||o.isInstancedMesh||!Object.values(this.geometries).includes(o.geometry))return;const key=o.geometry.uuid+o.material.uuid,b=groups.get(key)||{geo:o.geometry,mat:o.material,objects:[]};b.objects.push(o);groups.set(key,b);});for(const b of groups.values()){if(b.objects.length<3)continue;const mesh=new THREE.InstancedMesh(b.geo,b.mat,b.objects.length);mesh.name='instanced-street';b.objects.forEach((o,i)=>{mesh.setMatrixAt(i,o.matrixWorld);o.visible=false;});this.scene.add(mesh);}
  }
- alpona(z,size,xPosition=0){
-  if(this.alponaTexture){const mesh=new THREE.Mesh(this.geometries.alpona,this.alponaMaterial);mesh.scale.set(size,size,1);mesh.rotation.x=-Math.PI/2;mesh.position.set(xPosition,z>0?.03:.405,z);mesh.name='rice-paste-alpona';this.scene.add(mesh);this.alponas.push(mesh);return mesh;}
+ alpona(z,size){
   const c=document.createElement('canvas');c.width=c.height=1024;const x=c.getContext('2d');x.translate(512,512);x.strokeStyle='#fff1cf';x.fillStyle='#fff1cf';x.lineWidth=3;
   const circle=(r)=>{x.beginPath();x.arc(0,0,r,0,Math.PI*2);x.stroke();};for(const r of [55,75,130,145,280,293,440,450])circle(r);
   for(let i=0;i<24;i++){x.save();x.rotate(i*Math.PI/12);x.beginPath();x.moveTo(0,145);x.bezierCurveTo(-65,210,-65,280,0,365);x.bezierCurveTo(65,280,65,210,0,145);x.stroke();x.beginPath();x.moveTo(0,293);x.bezierCurveTo(-26,345,-26,390,0,432);x.bezierCurveTo(26,390,26,345,0,293);x.stroke();x.beginPath();x.arc(0,475,5,0,Math.PI*2);x.fill();x.restore();}
   for(let i=0;i<72;i++){const a=i*Math.PI/36;x.beginPath();x.arc(Math.cos(a)*395,Math.sin(a)*395,3,0,Math.PI*2);x.fill();}
-  const texture=new THREE.CanvasTexture(c);this.alponaTexture=texture;this.alponaMaterial=new THREE.MeshBasicMaterial({map:texture,transparent:true,depthWrite:false,side:THREE.DoubleSide});this.geometries.alpona=new THREE.PlaneGeometry(1,1);const mesh=new THREE.Mesh(this.geometries.alpona,this.alponaMaterial);mesh.scale.set(size,size,1);mesh.rotation.x=-Math.PI/2;mesh.position.set(xPosition,z>0?.03:.405,z);mesh.name='rice-paste-alpona';this.scene.add(mesh);this.alponas.push(mesh);
+  const texture=new THREE.CanvasTexture(c);const mesh=new THREE.Mesh(new THREE.PlaneGeometry(size,size),new THREE.MeshBasicMaterial({map:texture,transparent:true,depthWrite:false,side:THREE.DoubleSide}));mesh.rotation.x=-Math.PI/2;mesh.position.set(0,z>0?.03:.405,z);mesh.name='rice-paste-alpona';this.scene.add(mesh);this.alponas.push(mesh);
  }
  windowBay(side,z,red){
   if(!this.shutterTexture){const c=document.createElement('canvas');c.width=512;c.height=768;const x=c.getContext('2d');x.fillStyle='#233c36';x.fillRect(0,0,512,768);for(let i=0;i<30;i++){x.fillStyle=i%3?'#476456':'#536d5c';x.fillRect(18,20+i*24,476,15);x.fillStyle='#162b27';x.fillRect(18,35+i*24,476,5);}x.fillStyle='#b89757';for(const yy of [190,570])for(const xx of [27,472])x.fillRect(xx,yy,12,27);this.shutterTexture=new THREE.CanvasTexture(c);this.shutterTexture.colorSpace=THREE.SRGBColorSpace;}
@@ -181,14 +176,25 @@ export class PujoWorld {
   for(const b of batches.values()){const mesh=new THREE.InstancedMesh(b.geometry,b.material,b.entries.length);mesh.name='instanced-visitors';mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);b.entries.forEach(({person,object},index)=>{mesh.setMatrixAt(index,object.matrixWorld);person.instances.push({mesh,index,object});});this.scene.add(mesh);}
  }
 
- person(x,z,options={}){return createHuman(this,x,z,options);}
-
+ person(x,z,{outfit='#c18c54',sari=false,pose='idle',scale=1,rotation=0,hair='#292526',skin='#a77b57',priest=false}={}){
+  const g=new THREE.Group();g.position.set(x,z<1?.4:0,z);g.rotation.y=rotation;g.scale.setScalar(scale);this.scene.add(g);
+  const body=new THREE.Group();g.add(body);
+  if(sari){this.mesh((this.geometries.sari??=new THREE.CylinderGeometry(.22,.34,1.1,12)),outfit,[0,.75,0],null,body);this.ball(outfit,[0,1.36,0],[.27,.35,.19],body);this.box('#e1c195',[-.15,1.05,.2],[.09,1,.04],body);this.ball(hair,[0,1.99,-.12],[.21,.16,.16],body);this.ball(hair,[.05,1.87,-.22],[.13,.13,.12],body);}
+  else{this.mesh((this.geometries.kurta??=new THREE.CylinderGeometry(.22,.28,.85,12)),outfit,[0,1.15,0],null,body);this.cyl(priest?'#eee1c5':'#c9b697',[0,.54,0],[.245,.6,.245],body);for(let side of [-1,1]){this.cyl(skin,[side*.12,.19,0],[.065,.32,.065],body);this.box('#48362b',[side*.12,.04,.06],[.16,.08,.3],body);}this.ball(hair,[0,1.99,-.025],[.195,.14,.17],body);}
+  this.cyl(skin,[0,1.66,0],[.07,.16,.07],body);this.ball(skin,[0,1.87,.02],[.18,.23,.17],body);this.ball(skin,[0,1.87,.19],[.035,.045,.035],body);
+  // Tiny face details, sandals and a red bindi where appropriate.
+  for(let side of [-1,1])this.ball('#302821',[side*.065,1.91,.166],[.015,.017,.009],body);if(sari)this.ball('#a13a30',[0,2.005,.17],[.016,.02,.009],body);
+  const arms=[];for(let side of [-1,1]){const arm=new THREE.Group();arm.position.set(side*.23,1.48,0);body.add(arm);this.rod([0,0,0],[side*.07,-.4,.025],.065,sari?outfit:skin,arm);this.ball(skin,[side*.07,-.45,.03],[.065,.09,.065],arm);arms.push(arm);}
+  if(pose==='photo'){arms[0].rotation.x=-1.5;arms[1].rotation.x=-1.5;this.box('#292d31',[0,1.6,.54],[.32,.17,.035],body);this.box('#728d9d',[0,1.6,.562],[.25,.12,.01],body,{emissive:'#8aa0bd',emissiveIntensity:.3});}
+  if(pose==='pray'){for(let i=0;i<2;i++){arms[i].rotation.x=-1;arms[i].rotation.z=i?.5:-.5;}this.rod([-.16,1.32,.37],[0,1.48,.4],.05,skin,body);this.rod([.16,1.32,.37],[0,1.48,.4],.05,skin,body);}
+  if(priest){this.box('#b66541',[-.14,1.25,.2],[.11,.75,.04],body);this.rod([-.18,1.55,.22],[.19,.9,.22],.012,'#f1ddac',body);this.ball('#934438',[0,2.01,.18],[.018,.045,.01],body);}
+  const person={g,body,arms,pose,seed:x*3+z,radius:.30*scale};this.people.push(person);return person;
+ }
  buildPeople(){
   const colors=['#b95448','#b59a5c','#597b78','#d6b78a','#867197','#b08b6b','#72917c'];
   // Each queue figure has a permanent identity and follows the same curved path.
   this.queuePeople=[];const initial=queueSnapshot(0);for(let i=0;i<9;i++){const q=initial.people[i],p=this.person(q.x,q.z,{outfit:colors[i%7],sari:i%3===0,rotation:q.yaw,scale:i===5?.78:.95});p.queueId=i;this.queuePeople.push(p);}
-  this.volunteer=this.person(2.4,2.3,{outfit:'#c6b494',rotation:0});this.volunteer.g.name='arjun-front-of-queue';this.box('#a75c37',[-.13,1.25,.17],[.11,.65,.025],this.volunteer.body);this.text('VOLUNTEER',[0,1.29,.19],.39,.12,{bg:'#704332',font:'DM Sans',size:57,parent:this.volunteer.body});
-  this.person(-4.4,20.5,{outfit:'#526f83',rotation:.1});
+  this.person(3.4,1.7,{outfit:'#c6b494',rotation:.3});
   this.person(-3.2,17.8,{outfit:'#b75949',sari:true,rotation:.3});this.person(-4,18.3,{outfit:'#e1c798',rotation:2.2});this.person(-2.9,19.5,{outfit:'#6c8c85',scale:.6,rotation:2.7});
   this.vendorPeople=new Map();for(const [id,x,z,sari] of [['tea',-10.55,10,false],['game',9.7,14.9,false],['fuchka',-10.55,19,false],['jhalmuri',-10.55,25,false],['mishti',10.55,25,true],['flowers',10.55,7,true]]){const p=this.person(x,z,{outfit:colors[this.vendorPeople.size],sari,rotation:x<0?Math.PI/2:-Math.PI/2});p.g.position.y=.22;p.vendor=true;this.vendorPeople.set(id,p);}
   this.person(7.6,19,{outfit:'#6e8a85',rotation:.1});
@@ -201,7 +207,7 @@ export class PujoWorld {
   this.person(-3,-10,{outfit:'#867197',sari:true,pose:'photo',rotation:Math.PI});
   this.batchPeople(staticPeople);
   // Bengali priest, dhoti and uttariya, facing Maa and circling the arati lamp.
-  const priest=this.person(.35,-17.5,{outfit:'#e6d6b4',priest:true,rotation:Math.atan2(-.35,-3.75),pose:'arati'});this.priest=priest;priest.g.name='sourav-facing-maa';priest.arms[1].rotation.x=-1.3;
+  const priest=this.person(.35,-17.5,{outfit:'#e6d6b4',priest:true,rotation:Math.PI,pose:'arati'});priest.arms[1].rotation.x=-1.3;
   const lampGroup=new THREE.Group();priest.body.add(lampGroup);lampGroup.position.set(.43,1.4,.52);this.cyl('#b39745',[0,0,0],[.25,.05,.25],lampGroup);for(let i=0;i<5;i++){const a=i/5*Math.PI*2;this.ball('#ffe5a0',[Math.cos(a)*.18,.12,Math.sin(a)*.18],[.035,.13,.035],lampGroup,{emissive:'#ffb13a',emissiveIntensity:3});}
   this.animations.push(t=>{if(this.reduced)return;lampGroup.position.x=.36+Math.sin(t*1.7)*.25;lampGroup.position.y=1.5+Math.cos(t*1.7)*.16;priest.arms[1].rotation.z=.15+Math.sin(t*1.7)*.2;});
   // Dhaki with a suspended cylindrical dhak, carrying strap, ropes and two curved sticks.
@@ -229,7 +235,6 @@ export class PujoWorld {
   this.canvas.addEventListener('pointermove',e=>{if(!this.drag)return;this.yaw-=(e.clientX-this.drag.x)*.004;this.pitch=Math.max(-.65,Math.min(.6,this.pitch-(e.clientY-this.drag.y)*.003));this.drag.x=e.clientX;this.drag.y=e.clientY;});
   const release=()=>{this.drag=null;};this.canvas.addEventListener('pointerup',release);this.canvas.addEventListener('pointercancel',release);
  }
- capturePortrait(options){return capturePortrait(this,options);}
  characterPosition(id){return characterPosition(this,id);}
  greet(id){greetPerson(this,id);}
  startFireworks(){this.fireworks.elapsed=0;this.fireworks.active=true;this.fireworks.points.visible=true;updateFireworks(this,0);}
