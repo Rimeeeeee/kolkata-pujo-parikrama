@@ -47,3 +47,15 @@ The fairground attendant stands alongside the target board with no bounding-box 
 The reverse street view includes buildings, eight two-headed street lamps and more festive strings. The Fireworks control takes the visitor to a street view; Back to Puja restores the previous view. Fireworks use a fixed pool of 576 particles in a single Points object and stop when returning. The altar image is smaller, keeps its original aspect ratio and sits entirely below the canopy, with painted side surrounds and a gold top border bridging it to the architecture.
 
 Verification includes distance boundaries, stale purchase buttons, live seller anchors, all guided routes, human rig/instance updates, namaskar palms, attendant/board clearance, altar bounds and fixed fireworks memory. Browser rendering and real-device frame rate remain unverified because no browser surface was available.
+
+## Dress-up portraits and ritual refinements
+
+The tripod photo spot is in the open lane facing the pandal. Dress & pose walks to the camera, then opens a local preview. Choose red sari or dhoti kurta and namaskar, wave or relaxed pose; add an optional name and download a PNG. A dedicated 3:2 camera frames the full pandal and avatar; the photo-card export preserves that entire frame without cropping. Avatar render state is restored after capture, including on errors. No user photo or upload is required, and names/pictures are not sent to a server.
+
+Greeting synthesis uses the explicit spoken alias `শুভো` (Shubho), while the displayed Bengali retains the correct spelling `শুভ`. All 13 character recordings were regenerated. The manifest records both display and spoken text. Anirban-da adds a separate male neighbour greeting alongside Madhumita-di.
+
+Arjun stands at the entrance ahead of the first queue member. The entrance place takes visitors to Arjun; joining then walks to the actual tail. Sourav always faces the idol during arati, including after interacting. Ritual performers keep their ritual posture instead of turning around for the greeting gesture.
+
+All people now use jointed human proportions, shaped shoulders/waist, separate upper arms/forearms, hands, legs, sandals, detailed faces and layered sari or dhoti-kurta clothing. Two additional non-interactive dhakis play beside the courtyard; a woman in a red-bordered sari holds and blows a shankha. A soft, original synthesized conch call is enabled only near her when sound is on and stops on mute or hiding the page. It is not a field recording.
+
+More than 20 alpona placements cover the entrance apron, photo spot, shop approaches and bamboo queue borders, sharing one texture. Queue figures and the extra performers are also instanced, with animated matrices updated at 24 Hz. These remain stylised human models. Automated camera projections validate framing; real browser appearance and device performance remain unverified because no browser surface was available.

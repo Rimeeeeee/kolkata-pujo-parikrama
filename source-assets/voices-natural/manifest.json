@@ -13,195 +13,237 @@
   "characters": {
     "neighbour": {
       "text": "শুভ শারদীয়া! পুজো ভালো কাটুক। এসো, আমাদের পাড়ার ঠাকুর দেখে যাও।",
+      "spokenText": "শুভো শারদীয়া! পুজো ভালো কাটুক। এসো, আমাদের পাড়ার ঠাকুর দেখে যাও।",
+      "pronunciationNote": "Explicit শুভো (Shubho) vowel for Bengali greeting",
       "gender": "female",
       "voice": "piper-bn-IN-4811",
       "sourceSpeakerId": "4811",
       "piperSpeakerId": 12,
-      "duration": 6.943,
+      "duration": 6.908,
       "settings": {
         "lengthScale": 1.0,
         "noiseScale": 0.667,
         "noiseW": 0.8,
         "pitchShift": false
       },
-      "generationSeconds": 0.534,
-      "originalWavBytes": 306220
+      "generationSeconds": 0.366,
+      "originalWavBytes": 304684
+    },
+    "neighbour-male": {
+      "text": "শুভ শারদীয়া! কেমন আছো? এসো, একসঙ্গে ঠাকুর দেখে আসি। পুজোটা খুব ভালো কাটুক!",
+      "spokenText": "শুভো শারদীয়া! কেমন আছো? এসো, একসঙ্গে ঠাকুর দেখে আসি। পুজোটা খুব ভালো কাটুক!",
+      "pronunciationNote": "Explicit শুভো (Shubho) vowel for Bengali greeting",
+      "gender": "male",
+      "voice": "piper-bn-IN-1010",
+      "sourceSpeakerId": "1010",
+      "piperSpeakerId": 7,
+      "duration": 6.989,
+      "settings": {
+        "lengthScale": 1.0,
+        "noiseScale": 0.667,
+        "noiseW": 0.8,
+        "pitchShift": false
+      },
+      "generationSeconds": 0.294,
+      "originalWavBytes": 308268
     },
     "volunteer": {
       "text": "শুভ শারদীয়া! একটু লাইনে দাঁড়ান। আরতি শুরু হয়েছে, ভেতরে আসুন।",
+      "spokenText": "শুভো শারদীয়া! একটু লাইনে দাঁড়ান। আরতি শুরু হয়েছে, ভেতরে আসুন।",
+      "pronunciationNote": "Explicit শুভো (Shubho) vowel for Bengali greeting",
       "gender": "male",
       "voice": "piper-bn-IN-1010",
       "sourceSpeakerId": "1010",
       "piperSpeakerId": 7,
-      "duration": 5.41,
+      "duration": 5.631,
       "settings": {
         "lengthScale": 1.0,
         "noiseScale": 0.667,
         "noiseW": 0.8,
         "pitchShift": false
       },
-      "generationSeconds": 0.434,
-      "originalWavBytes": 238636
+      "generationSeconds": 0.239,
+      "originalWavBytes": 248364
     },
     "dhaki": {
       "text": "শুভ শারদীয়া! ঢাকের তালে তালে পুজো জমে উঠুক। দাঁড়াও, আর একটা বোল শোনাই!",
+      "spokenText": "শুভো শারদীয়া! ঢাকের তালে তালে পুজো জমে উঠুক। দাঁড়াও, আর একটা বোল শোনাই!",
+      "pronunciationNote": "Explicit শুভো (Shubho) vowel for Bengali greeting",
       "gender": "male",
       "voice": "piper-bn-IN-1010",
       "sourceSpeakerId": "1010",
       "piperSpeakerId": 7,
-      "duration": 6.455,
+      "duration": 6.583,
       "settings": {
         "lengthScale": 1.0,
         "noiseScale": 0.667,
         "noiseW": 0.8,
         "pitchShift": false
       },
-      "generationSeconds": 0.507,
-      "originalWavBytes": 284716
+      "generationSeconds": 0.287,
+      "originalWavBytes": 290348
     },
     "priest": {
       "text": "শুভ শারদীয়া। মা দুর্গা সবার মঙ্গল করুন। একটু দাঁড়িয়ে আরতি দেখুন।",
+      "spokenText": "শুভো শারদীয়া। মা দুর্গা সবার মঙ্গল করুন। একটু দাঁড়িয়ে আরতি দেখুন।",
+      "pronunciationNote": "Explicit শুভো (Shubho) vowel for Bengali greeting",
       "gender": "male",
       "voice": "piper-bn-IN-1010",
       "sourceSpeakerId": "1010",
       "piperSpeakerId": 7,
-      "duration": 5.573,
+      "duration": 5.596,
       "settings": {
         "lengthScale": 1.0,
         "noiseScale": 0.667,
         "noiseW": 0.8,
         "pitchShift": false
       },
-      "generationSeconds": 0.408,
-      "originalWavBytes": 245804
+      "generationSeconds": 0.255,
+      "originalWavBytes": 246828
     },
     "tea": {
       "text": "শুভ শারদীয়া! এক ভাঁড় গরম চা হবে? ঠাকুর দেখে এসে একটু বসো।",
+      "spokenText": "শুভো শারদীয়া! এক ভাঁড় গরম চা হবে? ঠাকুর দেখে এসে একটু বসো।",
+      "pronunciationNote": "Explicit শুভো (Shubho) vowel for Bengali greeting",
       "gender": "male",
       "voice": "piper-bn-IN-1010",
       "sourceSpeakerId": "1010",
       "piperSpeakerId": 7,
-      "duration": 5.283,
+      "duration": 5.248,
       "settings": {
         "lengthScale": 1.0,
         "noiseScale": 0.667,
         "noiseW": 0.8,
         "pitchShift": false
       },
-      "generationSeconds": 0.412,
-      "originalWavBytes": 233004
+      "generationSeconds": 0.243,
+      "originalWavBytes": 231468
     },
     "seller": {
       "text": "শুভ শারদীয়া! লাল, নীল, হলুদ—কোন বেলুনটা নেবে? পুজোর আনন্দ সবার জন্য!",
+      "spokenText": "শুভো শারদীয়া! লাল, নীল, হলুদ—কোন বেলুনটা নেবে? পুজোর আনন্দ সবার জন্য!",
+      "pronunciationNote": "Explicit শুভো (Shubho) vowel for Bengali greeting",
       "gender": "male",
       "voice": "piper-bn-IN-1010",
       "sourceSpeakerId": "1010",
       "piperSpeakerId": 7,
-      "duration": 6.095,
+      "duration": 6.351,
       "settings": {
         "lengthScale": 1.0,
         "noiseScale": 0.667,
         "noiseW": 0.8,
         "pitchShift": false
       },
-      "generationSeconds": 0.556,
-      "originalWavBytes": 268844
+      "generationSeconds": 0.257,
+      "originalWavBytes": 280108
     },
     "game": {
       "text": "শুভ শারদীয়া! বেলুন ফাটাবে? বারোটা সুযোগ আর পঁয়তাল্লিশ সেকেন্ড। দেখি তোমার নিশানা কেমন!",
+      "spokenText": "শুভো শারদীয়া! বেলুন ফাটাবে? বারোটা সুযোগ আর পঁয়তাল্লিশ সেকেন্ড। দেখি তোমার নিশানা কেমন!",
+      "pronunciationNote": "Explicit শুভো (Shubho) vowel for Bengali greeting",
       "gender": "male",
       "voice": "piper-bn-IN-1010",
       "sourceSpeakerId": "1010",
       "piperSpeakerId": 7,
-      "duration": 7.477,
+      "duration": 7.384,
       "settings": {
         "lengthScale": 1.0,
         "noiseScale": 0.667,
         "noiseW": 0.8,
         "pitchShift": false
       },
-      "generationSeconds": 0.639,
-      "originalWavBytes": 329772
+      "generationSeconds": 0.323,
+      "originalWavBytes": 325676
     },
     "photographer": {
       "text": "শুভ শারদীয়া! প্রতিমাটা কী সুন্দর, তাই না? একটা ছবি তুলে রাখি।",
+      "spokenText": "শুভো শারদীয়া! প্রতিমাটা কী সুন্দর, তাই না? একটা ছবি তুলে রাখি।",
+      "pronunciationNote": "Explicit শুভো (Shubho) vowel for Bengali greeting",
       "gender": "female",
       "voice": "piper-bn-IN-4811",
       "sourceSpeakerId": "4811",
       "piperSpeakerId": 12,
-      "duration": 6.502,
+      "duration": 6.385,
       "settings": {
         "lengthScale": 1.0,
         "noiseScale": 0.667,
         "noiseW": 0.8,
         "pitchShift": false
       },
-      "generationSeconds": 0.471,
-      "originalWavBytes": 286764
+      "generationSeconds": 0.283,
+      "originalWavBytes": 281644
     },
     "fuchka": {
       "text": "শুভ শারদীয়া! টক ঝাল ফুচকা হবে? তোমার জন্য একটা পাতা সাজিয়ে দিই।",
+      "spokenText": "শুভো শারদীয়া! টক ঝাল ফুচকা হবে? তোমার জন্য একটা পাতা সাজিয়ে দিই।",
+      "pronunciationNote": "Explicit শুভো (Shubho) vowel for Bengali greeting",
       "gender": "male",
       "voice": "piper-bn-IN-1010",
       "sourceSpeakerId": "1010",
       "piperSpeakerId": 7,
-      "duration": 5.364,
+      "duration": 5.55,
       "settings": {
         "lengthScale": 1.0,
         "noiseScale": 0.667,
         "noiseW": 0.8,
         "pitchShift": false
       },
-      "generationSeconds": 0.459,
-      "originalWavBytes": 236588
+      "generationSeconds": 0.245,
+      "originalWavBytes": 244780
     },
     "jhalmuri": {
       "text": "শুভ শারদীয়া! ঝালমুড়ি নেবে? বাদাম আর লেবু দিয়ে মেখে দিচ্ছি।",
+      "spokenText": "শুভো শারদীয়া! ঝালমুড়ি নেবে? বাদাম আর লেবু দিয়ে মেখে দিচ্ছি।",
+      "pronunciationNote": "Explicit শুভো (Shubho) vowel for Bengali greeting",
       "gender": "male",
       "voice": "piper-bn-IN-1010",
       "sourceSpeakerId": "1010",
       "piperSpeakerId": 7,
-      "duration": 4.899,
+      "duration": 5.062,
       "settings": {
         "lengthScale": 1.0,
         "noiseScale": 0.667,
         "noiseW": 0.8,
         "pitchShift": false
       },
-      "generationSeconds": 0.344,
-      "originalWavBytes": 216108
+      "generationSeconds": 0.216,
+      "originalWavBytes": 223276
     },
     "mishti": {
       "text": "শুভ শারদীয়া! নলেন গুড়ের সন্দেশ আর রসগোল্লা নেবে? একটু মিষ্টিমুখ করে যাও।",
+      "spokenText": "শুভো শারদীয়া! নলেন গুড়ের সন্দেশ আর রসগোল্লা নেবে? একটু মিষ্টিমুখ করে যাও।",
+      "pronunciationNote": "Explicit শুভো (Shubho) vowel for Bengali greeting",
       "gender": "female",
       "voice": "piper-bn-IN-4811",
       "sourceSpeakerId": "4811",
       "piperSpeakerId": 12,
-      "duration": 7.674,
+      "duration": 8.069,
       "settings": {
         "lengthScale": 1.0,
         "noiseScale": 0.667,
         "noiseW": 0.8,
         "pitchShift": false
       },
-      "generationSeconds": 0.542,
-      "originalWavBytes": 338476
+      "generationSeconds": 0.35,
+      "originalWavBytes": 355884
     },
     "flowers": {
       "text": "শুভ শারদীয়া! পুজোর ফুলের ঝুড়ি নেবেন? ছোট, মাঝারি আর বড়—তিন রকম আছে।",
+      "spokenText": "শুভো শারদীয়া! পুজোর ফুলের ঝুড়ি নেবেন? ছোট, মাঝারি আর বড়—তিন রকম আছে।",
+      "pronunciationNote": "Explicit শুভো (Shubho) vowel for Bengali greeting",
       "gender": "female",
       "voice": "piper-bn-IN-4811",
       "sourceSpeakerId": "4811",
       "piperSpeakerId": 12,
-      "duration": 7.732,
+      "duration": 7.279,
       "settings": {
         "lengthScale": 1.0,
         "noiseScale": 0.667,
         "noiseW": 0.8,
         "pitchShift": false
       },
-      "generationSeconds": 0.498,
-      "originalWavBytes": 341036
+      "generationSeconds": 0.357,
+      "originalWavBytes": 321068
     }
   }
 }
