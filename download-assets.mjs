@@ -1,0 +1,12 @@
+import fs from 'node:fs/promises';
+const html = await (await fetch('https://commons.wikimedia.org/wiki/File:Puja_dhak.ogg')).text();
+const match = html.match(/href="(https:\/\/upload\.wikimedia\.org\/wikipedia\/commons\/[^\"]+\/Puja_dhak\.ogg)/);
+if (!match) throw new Error('Original dhak recording URL missing');
+const response = await fetch(match[1]);
+if (!response.ok) throw new Error(`Audio download: ${response.status}`);
+const data = Buffer.from(await response.arrayBuffer());
+await fs.writeFile('dist/assets/dhak.ogg', data);
+console.log(`Dhak recording saved: ${data.length} bytes`);
+const license = await fetch('https://raw.githubusercontent.com/mrdoob/three.js/r160/LICENSE');
+if (!license.ok) throw new Error('Three.js license download failed');
+await fs.writeFile('dist/assets/THREE-LICENSE.txt', await license.text());

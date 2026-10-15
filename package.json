@@ -1,0 +1,1 @@
+{"name":"kolkata-pujo-parikrama","version":"2.0.0","private":true,"type":"module","scripts":{"test":"node test/game.test.mjs && node test/fairground.test.mjs && node test/world.test.mjs && node test/range.test.mjs && node test/voices.test.mjs && node test/app.test.mjs","serve":"node serve.mjs"}}

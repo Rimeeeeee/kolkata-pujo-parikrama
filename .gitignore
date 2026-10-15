@@ -1,0 +1,10 @@
+node_modules/
+*.log
+*.zip
+*.tar.gz
+.pujo-server.pid
+.env
+.env.*
+.openai/
+.codex/
+.agents/

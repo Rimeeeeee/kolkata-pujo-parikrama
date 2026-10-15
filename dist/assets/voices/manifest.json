@@ -1,0 +1,138 @@
+{
+  "generated": "2026-10-15",
+  "language": "bn",
+  "service": "Offline eSpeak NG formant synthesis",
+  "tool": "@echogarden/espeak-ng-emscripten 0.3.5",
+  "sampleRate": 22050,
+  "limitations": "These are deliberately distinct synthetic male and female voice variants, not natural human recordings.",
+  "sources": [
+    "https://github.com/echogarden-project/espeak-ng-emscripten",
+    "https://github.com/espeak-ng/espeak-ng"
+  ],
+  "characters": {
+    "neighbour": {
+      "voice": "bn+f3",
+      "gender": "Female",
+      "text": "শুভ শারদীয়া! পুজো ভালো কাটুক। এসো, আমাদের পাড়ার ঠাকুর দেখে যাও।",
+      "file": "assets/voices/neighbour.mp3",
+      "bytes": 94667,
+      "duration": 11.762721088435374,
+      "originalWavBytes": 518780
+    },
+    "volunteer": {
+      "voice": "bn+m3",
+      "gender": "Male",
+      "text": "শুভ শারদীয়া! একটু লাইনে দাঁড়ান। আরতি শুরু হয়েছে, ভেতরে আসুন।",
+      "file": "assets/voices/volunteer.mp3",
+      "bytes": 92368,
+      "duration": 11.480952380952381,
+      "originalWavBytes": 506354
+    },
+    "dhaki": {
+      "voice": "bn+m3",
+      "gender": "Male",
+      "text": "শুভ শারদীয়া! ঢাকের তালে তালে পুজো জমে উঠুক। দাঁড়াও, আর একটা বোল শোনাই!",
+      "file": "assets/voices/dhaki.mp3",
+      "bytes": 96757,
+      "duration": 12.019455782312924,
+      "originalWavBytes": 530102
+    },
+    "priest": {
+      "voice": "bn+m3",
+      "gender": "Male",
+      "text": "শুভ শারদীয়া। মা দুর্গা সবার মঙ্গল করুন। একটু দাঁড়িয়ে আরতি দেখুন।",
+      "file": "assets/voices/priest.mp3",
+      "bytes": 87771,
+      "duration": 10.913378684807256,
+      "originalWavBytes": 481324
+    },
+    "tea": {
+      "voice": "bn+m3",
+      "gender": "Male",
+      "text": "শুভ শারদীয়া! এক ভাঁড় গরম চা হবে? ঠাকুর দেখে এসে একটু বসো।",
+      "file": "assets/voices/tea.mp3",
+      "bytes": 86935,
+      "duration": 10.798095238095238,
+      "originalWavBytes": 476240
+    },
+    "seller": {
+      "voice": "bn+m3",
+      "gender": "Male",
+      "text": "শুভ শারদীয়া! লাল, নীল, হলুদ—কোন বেলুনটা নেবে? পুজোর আনন্দ সবার জন্য!",
+      "file": "assets/voices/seller.mp3",
+      "bytes": 108460,
+      "duration": 13.496961451247165,
+      "originalWavBytes": 595260
+    },
+    "game": {
+      "voice": "bn+m3",
+      "gender": "Male",
+      "text": "শুভ শারদীয়া! বেলুন ফাটাবে? বারোটা সুযোগ আর পঁয়তাল্লিশ সেকেন্ড। দেখি তোমার নিশানা কেমন!",
+      "file": "assets/voices/game.mp3",
+      "bytes": 128313,
+      "duration": 15.962131519274376,
+      "originalWavBytes": 703974
+    },
+    "photographer": {
+      "voice": "bn+f3",
+      "gender": "Female",
+      "text": "শুভ শারদীয়া! প্রতিমাটা কী সুন্দর, তাই না? একটা ছবি তুলে রাখি।",
+      "file": "assets/voices/photographer.mp3",
+      "bytes": 92160,
+      "duration": 11.453786848072562,
+      "originalWavBytes": 505156
+    },
+    "mishti": {
+      "voice": "bn+f3",
+      "gender": "Female",
+      "text": "শুভ শারদীয়া! নলেন গুড়ের সন্দেশ আর রসগোল্লা নেবে? একটু মিষ্টিমুখ করে যাও।",
+      "file": "assets/voices/mishti.mp3",
+      "bytes": 106788,
+      "duration": 13.293650793650794,
+      "originalWavBytes": 586294
+    },
+    "flowers": {
+      "voice": "bn+f3",
+      "gender": "Female",
+      "text": "শুভ শারদীয়া! মায়ের জন্য ফুল আর মালা নেবে? এই নাও, সুন্দর একটা গাঁদার মালা।",
+      "file": "assets/voices/flowers.mp3",
+      "bytes": 106161,
+      "duration": 13.202312925170068,
+      "originalWavBytes": 582266
+    },
+    "fuchka": {
+      "voice": "bn+m3",
+      "gender": "Male",
+      "text": "শুভ শারদীয়া! টক ঝাল ফুচকা হবে? তোমার জন্য একটা পাতা সাজিয়ে দিই।",
+      "file": "assets/voices/fuchka.mp3",
+      "bytes": 91951,
+      "duration": 11.417959183673469,
+      "originalWavBytes": 503576
+    },
+    "jhalmuri": {
+      "voice": "bn+m3",
+      "gender": "Male",
+      "text": "শুভ শারদীয়া! ঝালমুড়ি নেবে? বাদাম আর লেবু দিয়ে মেখে দিচ্ছি।",
+      "file": "assets/voices/jhalmuri.mp3",
+      "bytes": 76904,
+      "duration": 9.54063492063492,
+      "originalWavBytes": 420786
+    },
+    "rolls": {
+      "voice": "bn+m3",
+      "gender": "Male",
+      "text": "শুভ শারদীয়া! গরম গরম পনির রোল হবে? একদম এখনই বানিয়ে দিচ্ছি।",
+      "file": "assets/voices/rolls.mp3",
+      "bytes": 88607,
+      "duration": 11.014421768707482,
+      "originalWavBytes": 485780
+    }
+  },
+  "encoding": {
+    "format": "MP3",
+    "bitrateKbps": 64,
+    "channels": 1,
+    "sampleRate": 22050,
+    "encoder": "@breezystack/lamejs 1.2.7"
+  }
+}
