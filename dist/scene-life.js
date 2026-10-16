@@ -1,6 +1,7 @@
 import * as THREE from './assets/three.module.js';
 import {CHARACTERS} from './neighbourhood.js';
 import {moveAmongPeople} from './movement.js';
+const HIDDEN_VISITOR=new THREE.Matrix4().makeScale(0,0,0);
 
 export function buildStreetDetails(w){
  // A continuous lane and occupied far end replace the empty reverse view.
@@ -65,7 +66,7 @@ export function updatePeople(w,dt){
   }
   if(p.pose==='arati')p.g.rotation.y=Math.atan2(-p.g.position.x,-21.25-p.g.position.z);
   if(p.gesture){p.gesture.visible=greeting>0;p.arms.forEach(a=>a.visible=!greeting);if(greeting){const age=t-p.greetingStart,k=w.reduced?1:Math.min(1,age/.55,greeting/.55);const facing=Math.atan2(w.camera.position.x-p.g.position.x,w.camera.position.z-p.g.position.z);p.g.rotation.y=facing;p.head.rotation.x=.12*k;for(let sideIndex=0;sideIndex<2;sideIndex++){const side=sideIndex?1:-1,shoulder=new THREE.Vector3(side*.23,1.48,0),elbow=new THREE.Vector3(side*.32,1.09,.19*k),hand=new THREE.Vector3(side*(.31*(1-k)+.025*k),1.02+.43*k,.045+.315*k);p.palms[sideIndex].position.copy(hand);const points=[[shoulder,elbow],[elbow,hand]];points.forEach(([a,b],j)=>{const rod=p.gestureRods[sideIndex*2+j],v=b.clone().sub(a);rod.position.copy(a).add(b).multiplyScalar(.5);rod.scale.y=v.length();rod.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),v.normalize());});}}}
-  if(p.batched&&refresh){p.g.updateWorldMatrix(true,true);for(const ref of p.instances||[]){ref.mesh.setMatrixAt(ref.index,ref.object.matrixWorld);ref.mesh.instanceMatrix.needsUpdate=true;}}
+  if(p.batched&&refresh){p.g.updateWorldMatrix(true,true);for(const ref of p.instances||[]){let visible=!p.ritualHidden;for(let o=ref.object;o&&o!==p.g;o=o.parent)if(!o.visible){visible=false;break;}ref.mesh.setMatrixAt(ref.index,visible?ref.object.matrixWorld:HIDDEN_VISITOR);ref.mesh.instanceMatrix.needsUpdate=true;}}
  }
 }
 

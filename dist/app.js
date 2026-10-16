@@ -8,10 +8,12 @@ import {withinReach} from './interaction.js';
 import {queueSnapshot} from './movement.js';
 import {PHOTO_SPOT,drawPortraitCard} from './photo-booth.js';
 import {mobileLayout,installJoystick} from './touch-controls.js';
+import {PUJA_MODES} from './puja-state.js';
+import {PujaRituals} from './puja-rituals.js';
 
 const $=id=>document.getElementById(id);
-const state={started:false,entered:false,queuing:false,sound:false,moments:new Set(),round:newRangeRound(),currentCharacter:null,place:'street',inputPaused:false,balloon:null,purchases:[],shop:null,watchingFireworks:false};
-let world=null,range=null,joystick=null,toastTimer=0,lastQueueNotice=0,voiceAudio=null,postcardSnapshot=null,portraitSnapshot=null;
+const state={started:false,entered:false,queuing:false,sound:false,moments:new Set(),round:newRangeRound(),currentCharacter:null,place:'street',inputPaused:false,balloon:null,purchases:[],shop:null,watchingFireworks:false,pujaMode:'saptami'};
+let world=null,range=null,joystick=null,rituals=null,lastRitualUI='',toastTimer=0,lastQueueNotice=0,voiceAudio=null,postcardSnapshot=null,portraitSnapshot=null;
 const portraitOptions={outfit:'sari',pose:'namaskar'};
 let selectedBalloon=balloonChoice(BALLOON_COLOURS[0].hex,BALLOON_COLOURS[0].name);
 function toast(message){clearTimeout(toastTimer);$('toast').textContent=message;$('toast').classList.add('show');toastTimer=setTimeout(()=>$('toast').classList.remove('show'),4300);}
@@ -22,6 +24,7 @@ function updateJourney(){
  const n=state.moments.size;$('journey-count').textContent=`${n} / 5 moments`;$('progress').style.width=`${n/5*100}%`;
  let title,copy,button;
  if(!state.entered){title='First, follow the sound of dhak.';copy='Join the neighbours at the pandal entrance. Maa is waiting inside.';button='Join the pandal queue';}
+ else if(state.pujaMode!=='saptami'){title=PUJA_MODES[state.pujaMode].title;copy=PUJA_MODES[state.pujaMode].description;button=state.pujaMode==='ashtami'?'Go to the purohit':state.pujaMode==='navami'?'Follow the dhak':'Meet Paromita-di';}
  else if(!state.moments.has('dhaki')){title='The heartbeat of the evening.';copy='Bimal-da is playing by the courtyard. Stay and say hello.';button='Meet the dhaki';}
  else if(!state.moments.has('tea')){title='Time for a little cha and adda.';copy='Haru-da has a warm clay cup waiting out on the lane.';button='Visit Haru-da’s tea shop';}
  else if(!state.moments.has('game')){title='Ready, aim, a little joy.';copy='Twelve corks. Ten moving balloons. How steady is your aim?';button='Visit the shooting range';}
@@ -30,9 +33,11 @@ function updateJourney(){
  $('journey-title').textContent=title;$('journey-copy').textContent=copy;$('next-moment').innerHTML=`${button} <span>→</span>`;
 }
 function stopVoice(){if(voiceAudio){voiceAudio.pause();voiceAudio=null;}window.speechSynthesis?.cancel();$('dhak-audio').volume=.48;}
+function stopChorus(){$('ritual-chorus').pause();$('ritual-chorus').currentTime=0;}
+function chant(){if(!state.sound)return;stopVoice();const audio=$('ritual-chorus');audio.currentTime=0;audio.volume=.8;$('dhak-audio').volume=.16;audio.onended=()=>{$('dhak-audio').volume=.48;};audio.play().catch(()=>{$('dhak-audio').volume=.48;});}
 async function sound(on){
  state.sound=on;const audio=$('dhak-audio');audio.volume=.48;
- if(on){try{await audio.play();}catch{state.sound=false;toast('Tap Sound again to start the dhak.');}}else{audio.pause();stopVoice();}
+ if(on){try{await audio.play();}catch{state.sound=false;toast('Tap Sound again to start the dhak.');}}else{audio.pause();stopVoice();stopChorus();}
  $('sound').setAttribute('aria-label',state.sound?'Mute dhak sound':'Turn on dhak sound');$('sound').querySelector('span').textContent=state.sound?'Dhak on':'Sound off';$('sound').style.borderColor=state.sound?'#c9a36d':'';
 }
 function begin({audio=true}={}){
@@ -50,7 +55,7 @@ function updateTouchControls(){
  $('touch-controls').classList.toggle('hidden',!state.started||!layout.touch||layout.rotate);
 }
 addEventListener('resize',updateTouchControls);
-function resumeInput(){state.inputPaused=state.queuing||!!document.querySelector('dialog[open]')||!$('dialogue').classList.contains('hidden');if(state.inputPaused)stopWalking();$('move-joystick').setAttribute('aria-disabled',String(state.inputPaused));if(world)world.suspended=!!document.querySelector('dialog[open]');}
+function resumeInput(){state.inputPaused=state.queuing||!!world?.ritualLocked||!!document.querySelector('dialog[open]')||!$('dialogue').classList.contains('hidden');if(state.inputPaused)stopWalking();$('move-joystick').setAttribute('aria-disabled',String(state.inputPaused));if(world)world.suspended=!!document.querySelector('dialog[open]');}
 function openModal(id){closeDialogue();pauseInput();if(world)world.suspended=true;const dialog=$(id);if(!dialog.open)dialog.showModal();}
 function closeDialogue(){if(world)world.conversationId=null;$('dialogue').classList.add('hidden');stopVoice();resumeInput();}
 async function speakCharacter(id,{explicit=false}={}){
@@ -66,26 +71,26 @@ function personPosition(id){return world?.characterPosition?.(id)||CHARACTERS[id
 function canInteract(id,{notify=false}={}){const c=CHARACTERS[id];if(!c||c.interactable===false||state.queuing)return false;if(!world?.renderer)return true;const anchor=personPosition(id);const allowed=anchor&&withinReach(world.camera.position,{x:anchor[0],z:anchor[2]},{entered:state.entered,queuing:state.queuing});if(!allowed&&notify)toast(`Walk closer to ${c.name.split(' · ')[0]} to talk or buy something.`);return !!allowed;}
 async function approach(id){if(!world?.renderer)return;const a=personPosition(id);if(!a)return;const from=world.camera.position,dx=from.x-a[0],dz=from.z-a[2],n=Math.hypot(dx,dz)||1;await world.go([a[0]+dx/n*1.9,from.y,a[2]+dz/n*1.9],[a[0],a[1]-.3,a[2]]);}
 function talk(id){
- if(!canInteract(id,{notify:true}))return;begin({audio:false});const c=CHARACTERS[id];if(!c)return;state.currentCharacter={...c,id};pauseInput();world?.greet?.(id);if(c.moment)mark(c.moment);
+ if(!canInteract(id,{notify:true}))return;begin({audio:false});const c={...CHARACTERS[id]};if(id==='dhaki'&&state.pujaMode==='navami'){c.action=rituals?.state.started?'Go to the dance circle →':'Ask to start dhunuchi naach →';c.do=rituals?.state.started?'ritual-go':'ritual-start';}state.currentCharacter={...c,id};pauseInput();world?.greet?.(id);if(c.moment)mark(c.moment);
  $('dialogue-role').textContent=c.role;$('dialogue-name').textContent=c.name;$('dialogue-bn').textContent=c.bn;$('dialogue-en').textContent=c.en;$('dialogue-en').classList.add('hidden');$('translate').textContent='Translate to English ↗';
  $('dialogue-action').classList.toggle('hidden',!c.action);$('dialogue-action').textContent=c.action||'';$('dialogue').classList.remove('hidden');$('translate').focus({preventScroll:true});speakCharacter(id);
 }
 async function go(id){
- if(state.queuing)return;if(state.watchingFireworks){state.watchingFireworks=false;world?.stopFireworks?.();$('fireworks').setAttribute('aria-pressed','false');$('fireworks').querySelector('span').textContent='Fireworks';}begin({audio:false});closeDialogue();const p=PLACES.find(p=>p.id===id);if(!p)return;
+ if(state.queuing)return;rituals?.leave();stopChorus();if(state.watchingFireworks){state.watchingFireworks=false;world?.stopFireworks?.();$('fireworks').setAttribute('aria-pressed','false');$('fireworks').querySelector('span').textContent='Fireworks';}begin({audio:false});closeDialogue();const p=PLACES.find(p=>p.id===id);if(!p)return;
  if(['inside','dhaki'].includes(id)&&!state.entered){await joinQueue();if(id==='dhaki'&&world?.renderer)await world.go(p.position,p.look);return;}
  state.place=id;$('location').textContent=p.title;
  const captions={street:['01 — THE PARA','Some streets feel like coming home.'],queue:['02 — THE ENTRANCE','Good things are worth a little wait.'],inside:['03 — THE MANDAP','Stay a moment. The arati has begun.'],dhaki:['04 — THE DHAK','A rhythm that brings everyone home.'],tea:['05 — CHA & ADDA','One cup. A hundred conversations.'],balloons:['06 — THE FAIRGROUND','A steady hand. A happy little pop.']};
- const caption=captions[id]||['THE PARA’S LITTLE SHOPS','There is always room for one more stop.'];$('scene-caption').innerHTML=`<span>${caption[0]}</span><p>${caption[1]}</p>`;
+ const caption=id==='inside'&&state.pujaMode!=='saptami'?[PUJA_MODES[state.pujaMode].time,PUJA_MODES[state.pujaMode].description]:captions[id]||['THE PARA’S LITTLE SHOPS','There is always room for one more stop.'];$('scene-caption').innerHTML=`<span>${caption[0]}</span><p>${caption[1]}</p>`;
  if(world?.renderer)await world.go(p.position,p.look);else{const character={street:'neighbour',queue:'volunteer',inside:'priest',balloons:'game'}[id]||id;if(id==='inside'){state.entered=true;mark('inside');}talk(character);}
 }
 async function joinQueue(){
  begin({audio:false});closeDialogue();if(state.queuing)return;if(state.entered){await go('inside');return;}
  state.queuing=true;pauseInput();if(world)world.locked=true;$('next-moment').disabled=true;$('next-moment').textContent='Following the queue…';toast('You’ve joined the queue. Arjun will guide you inside.');
- $('places').disabled=true;$('photo').disabled=true;$('fireworks').disabled=true;
+ $('places').disabled=true;$('photo').disabled=true;$('fireworks').disabled=true;$('puja-mode').disabled=true;
  if(world?.renderer){const tail=queueSnapshot(0).player;await world.go([tail.x,1.9,tail.z],[tail.x,1.8,tail.z-3]);await world.joinQueue(snap=>{$('next-moment').textContent=snap.ahead?`${snap.ahead} people ahead · ${snap.moving?'Following the line…':'Waiting with the neighbours…'}`:'Your turn · stepping inside…';});}
  $('places').disabled=false;$('photo').disabled=false;$('fireworks').disabled=false;
 
- state.entered=true;state.queuing=false;if(world)world.locked=false;state.place='inside';mark('inside');$('next-moment').disabled=false;$('location').textContent='Inside the pandal';$('scene-caption').innerHTML='<span>03 — THE MANDAP</span><p>Stay a moment. The arati has begun.</p>';resumeInput();toast('শুভ শারদীয়া! Welcome inside. Stay a little and watch the arati.');
+ state.entered=true;state.queuing=false;if(world)world.locked=false;state.place='inside';mark('inside');$('next-moment').disabled=false;$('location').textContent='Inside the pandal';$('scene-caption').innerHTML=`<span>${PUJA_MODES[state.pujaMode].time}</span><p>${PUJA_MODES[state.pujaMode].description}</p>`;applyPujaUI();resumeInput();toast('শুভ শারদীয়া! Welcome inside the pandal.');
 }
 function openShop(shop){
  if(!canInteract(shop,{notify:true}))return;state.shop=shop;
@@ -125,20 +130,43 @@ function updatePortraitCard(){if(!portraitSnapshot)return;const name=postcardNam
 function takePortrait(){if(!nearPhotoBooth()){toast('Come closer to the camera to take your Puja portrait.');return;}portraitOptions.outfit=$('portrait-outfit').value||'sari';portraitOptions.pose=$('portrait-pose').value||'namaskar';try{portraitSnapshot=world.capturePortrait(portraitOptions);updatePortraitCard();$('portrait-message').textContent='Your portrait is ready. The pandal is behind you. Save it below.';}catch(error){portraitSnapshot=null;$('portrait-image').removeAttribute('src');$('download-portrait').removeAttribute('href');$('download-portrait').setAttribute('aria-disabled','true');console.warn('Portrait unavailable',error);$('portrait-message').textContent='The portrait could not be rendered. Try again in a browser with graphics acceleration.';}}
 async function openPhotoBooth({walk=true}={}){if(state.queuing)return;begin({audio:false});if(!world?.renderer){toast('Dress-up portraits need the 3D view.');return;}closeDialogue();if(walk){$('postcard-modal').close();await go('portrait');}if(!nearPhotoBooth()){toast('Walk up to the tripod camera in front of the pandal.');return;}openModal('portrait-modal');takePortrait();}
 async function watchFireworks(){
- if(state.queuing)return;begin({audio:false});closeDialogue();
+ if(state.queuing||!PUJA_MODES[state.pujaMode].fireworks)return;if(world?.ritualLocked)leaveRitual();begin({audio:false});closeDialogue();
  if(!world?.renderer){toast('Fireworks need the 3D view.');return;}
  if(state.watchingFireworks){state.watchingFireworks=false;world.stopFireworks();$('fireworks').setAttribute('aria-pressed','false');$('fireworks').querySelector('span').textContent='Fireworks';await world.go(fireworksReturn.position,fireworksReturn.look);return;}
  const p=world.camera.position;fireworksReturn={position:[p.x,p.y,p.z],look:[p.x-Math.sin(world.yaw)*10,p.y+Math.sin(world.pitch)*10,p.z-Math.cos(world.yaw)*10]};state.watchingFireworks=true;$('fireworks').setAttribute('aria-pressed','true');$('fireworks').querySelector('span').textContent='Back to Puja';await world.go([0,2,24],[0,14,48]);if(state.watchingFireworks)world.startFireworks();
 }
+function ritualBlocked(){return state.queuing||!!world?.target||!!document.querySelector('dialog[open]')||!$('dialogue').classList.contains('hidden');}
+function updatePujaCaption(){if(state.place==='inside'){$('location').textContent='Inside the pandal';const config=PUJA_MODES[state.pujaMode];$('scene-caption').innerHTML=`<span>${config.time}</span><p>${config.description}</p>`;}}
+function applyPujaUI(){const config=PUJA_MODES[state.pujaMode];document.body.classList.toggle('daylight',config.daylight);$('puja-time-label').textContent=config.time;$('puja-mode-label').textContent=state.pujaMode==='navami'?'Navami':state.pujaMode[0].toUpperCase()+state.pujaMode.slice(1);$('puja-mode').disabled=state.queuing;$('fireworks').disabled=state.queuing||!config.fireworks;$('fireworks').title=config.fireworks?'Watch fireworks over the street':'Fireworks are off during daylight Puja';for(const id of Object.keys(PUJA_MODES))$('mode-'+id).setAttribute('aria-pressed',String(id===state.pujaMode));$('sindoor-veil').hidden=state.pujaMode!=='dashami'||!rituals?.state.applied;lastRitualUI='';updateJourney();updatePujaCaption();updateRitualUI();}
+function switchPuja(mode){if(state.queuing||!PUJA_MODES[mode])return;closeDialogue();stopWalking();stopChorus();world?.stopFireworks?.();state.watchingFireworks=false;$('fireworks').setAttribute('aria-pressed','false');$('fireworks').querySelector('span').textContent='Fireworks';state.pujaMode=mode;rituals?.setMode(mode);$('puja-modal').close();applyPujaUI();resumeInput();}
+async function goRitual(){if(state.queuing||!rituals)return;const mode=state.pujaMode;begin({audio:false});closeDialogue();if(!state.entered)await joinQueue();if(state.pujaMode!==mode)return;if(world.ritualLocked)rituals.leave();resumeInput();world.stopFireworks();state.watchingFireworks=false;$('fireworks').setAttribute('aria-pressed','false');$('fireworks').querySelector('span').textContent='Fireworks';const target=rituals.target();state.place='inside';await world.go(target.position,target.look);applyPujaUI();}
+function startRitual(){if(!rituals)return;closeDialogue();if(rituals.action('start',state.entered,ritualBlocked())){stopWalking();updateRitualUI();}}
+function performRitual(){if(rituals?.action('perform',state.entered,ritualBlocked())){stopWalking();resumeInput();updateRitualUI();}}
+function leaveRitual(){rituals?.leave();stopChorus();resumeInput();lastRitualUI='';updateRitualUI();}
+function updateRitualUI(){
+ const hud=$('ritual-hud'),marker=$('ritual-marker');if(!rituals||!state.started||state.pujaMode==='saptami'){hud.classList.add('hidden');marker.hidden=true;return null;}
+ hud.classList.remove('hidden');const s=rituals.state,c=rituals.context(state.entered,ritualBlocked()),controls=rituals.controls(state.entered,ritualBlocked()),anchor=rituals.marker(),point=anchor?world.project(anchor):null;
+ marker.hidden=!(controls.start&&point?.visible&&!state.inputPaused);if(!marker.hidden){placeMarker(marker,{x:point.x,y:point.y-35});marker.textContent=s.mode==='ashtami'?'Join anjali ↗':s.mode==='navami'?'Ask for dhunuchi naach ↗':'Paromita-di · Sindoor khela ↗';}
+ const key=JSON.stringify([s.mode,s.phase,s.round,s.applied,controls,state.entered,c.nearPriest,c.blocked]);if(key===lastRitualUI)return marker.hidden?null:point;lastRitualUI=key;$('ritual-go').disabled=state.queuing||!!world.target;
+ $('ritual-title').textContent=PUJA_MODES[s.mode].bn;let status='';
+ if(!state.entered)status='Join the pandal queue first, then walk to the ritual.';
+ else if(s.mode==='ashtami'){const copy={idle:'Walk close to Sourav-babu to join three rounds of anjali.',gathering:'The neighbours are gathering around you.',receiving:`Round ${s.round} / 3 · Sourav-babu places flowers in your hands.`,chanting:`Round ${s.round} / 3 · জয় মা দুর্গা! · Joy Maa Durga!`,ready:`Round ${s.round} / 3 · Offer the flowers at Maa’s feet.`,offering:'Your flowers are travelling to Maa’s feet.',complete:'Three offerings complete. জয় মা দুর্গা!'};status=s.started&&!c.nearPriest&&s.phase!=='complete'?'Walk back close to the purohit to continue.':copy[s.phase];}
+ else if(s.mode==='navami')status=!s.started?'Walk close to Bimal-da and ask him to begin.':s.joined?'You are dancing with the circle. Leave whenever you like.':controls.perform?'You are close enough. Join the dhunuchi dance.':'Walk close to a dancer around the alpona to join.';
+ else status=!s.started?'Meet Paromita-di beside the purohit to begin.':s.phase==='applying'?'You offer sindoor; a neighbour colours your cheeks in return.':s.applied?(controls.perform?'Shubho Bijoya! Your cheeks carry the colours of sindoor.':'Shubho Bijoya! Walk close to the women to play again.'):controls.perform?'The women are playing. Apply and receive a little sindoor.':'Walk close to the women to play sindoor khela.';
+ $('ritual-status').textContent=status;$('ritual-start').hidden=s.phase!=='idle';$('ritual-start').disabled=!controls.start;$('ritual-start').textContent=s.mode==='ashtami'?'Join anjali':s.mode==='navami'?'Ask to start naach':'Begin sindoor khela';
+ $('ritual-perform').hidden=!s.started||s.phase==='complete';$('ritual-perform').disabled=!controls.perform;$('ritual-perform').textContent=s.mode==='ashtami'?`Throw flowers · ${s.round} / 3`:s.mode==='navami'?'Dance':'Play sindoor khela';$('ritual-go').hidden=s.mode==='navami'&&s.joined;$('ritual-go').textContent=s.mode==='ashtami'?'Go to purohit ↗':s.mode==='navami'?(s.started?'Go to dance circle ↗':'Go to dhaki ↗'):'Meet Paromita-di ↗';$('ritual-leave').hidden=!(s.mode==='ashtami'&&s.started||s.mode==='navami'&&s.joined);$('ritual-leave').textContent=s.mode==='navami'?'Leave dance':'Leave anjali';$('sindoor-veil').hidden=s.mode!=='dashami'||!s.applied;
+ return marker.hidden?null:point;
+}
 let fireworksReturn=null;
 $('begin').onclick=()=>begin();$('portrait-outfit').onchange=takePortrait;$('portrait-pose').onchange=takePortrait;$('take-portrait').onclick=takePortrait;$('portrait-name').oninput=updatePortraitCard;$('postcard-dress-up').onclick=()=>openPhotoBooth();$('fireworks').onclick=watchFireworks;$('sound').onclick=()=>sound(!state.sound);$('guide').onclick=()=>openModal('guide-modal');$('places').onclick=()=>openModal('places-modal');$('fallback-explore').onclick=()=>openModal('places-modal');$('references').onclick=()=>{$('guide-modal').close();openModal('credits-modal');};$('photo').onclick=postcard;
 document.querySelector('.brand').onclick=e=>{e.preventDefault();go('street');};
+$('puja-mode').onclick=()=>openModal('puja-modal');for(const mode of Object.keys(PUJA_MODES))$('mode-'+mode).onclick=()=>switchPuja(mode);$('ritual-go').onclick=goRitual;$('ritual-start').onclick=startRitual;$('ritual-perform').onclick=performRitual;$('ritual-leave').onclick=leaveRitual;$('ritual-marker').onclick=startRitual;
 document.querySelectorAll('[data-close]').forEach(button=>button.onclick=()=>button.closest('dialog').close());
 document.querySelectorAll('dialog').forEach(dialog=>{dialog.addEventListener('close',()=>{if(dialog.id==='game-modal')range?.stop();resumeInput();});dialog.addEventListener('click',event=>{if(event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)dialog.close();}});});
 $('close-dialogue').onclick=closeDialogue;$('translate').onclick=()=>{const hidden=$('dialogue-en').classList.toggle('hidden');$('translate').textContent=hidden?'Translate to English ↗':'Hide English translation ↑';};$('listen').onclick=()=>speakCharacter(state.currentCharacter?.id,{explicit:true});
 $('camera-marker').onclick=()=>openPhotoBooth({walk:false});
-$('dialogue-action').onclick=()=>{const c=state.currentCharacter;if(!c)return;if(c.do==='queue')joinQueue();if(c.do==='shop')openShop(c.shop);if(c.do==='balloon')openBalloonShop();if(c.do==='game')openGame();};
-$('next-moment').onclick=async()=>{if(!state.entered)return joinQueue();if(!state.moments.has('dhaki')){await go('dhaki');talk('dhaki');}else if(!state.moments.has('tea')){await go('tea');talk('tea');}else if(!state.moments.has('game')){await go('balloons');talk('game');}else if(!state.moments.has('greeting')){await go('street');await approach('neighbour');talk('neighbour');}else postcard();};
+$('dialogue-action').onclick=()=>{const c=state.currentCharacter;if(!c)return;if(c.do==='queue')joinQueue();if(c.do==='shop')openShop(c.shop);if(c.do==='balloon')openBalloonShop();if(c.do==='game')openGame();if(c.do==='ritual-start')startRitual();if(c.do==='ritual-go')goRitual();};
+$('next-moment').onclick=async()=>{if(!state.entered)return joinQueue();if(state.pujaMode!=='saptami')return goRitual();if(!state.moments.has('dhaki')){await go('dhaki');talk('dhaki');}else if(!state.moments.has('tea')){await go('tea');talk('tea');}else if(!state.moments.has('game')){await go('balloons');talk('game');}else if(!state.moments.has('greeting')){await go('street');await approach('neighbour');talk('neighbour');}else postcard();};
 for(const place of PLACES){const button=document.createElement('button');button.className='place-card';button.innerHTML=`<span>${place.number} · ${place.bn}</span><i>↗</i><h3>${place.title}</h3><p>${place.description}</p>`;button.onclick=async()=>{$('places-modal').close();await go(place.id);if(place.id==='portrait'){await openPhotoBooth({walk:false});return;}const character=place.id==='balloons'?'game':place.id==='queue'?'volunteer':place.id;if(CHARACTERS[character])talk(character);};$('place-grid').append(button);}
 const markerButtons=[];for(const [id,c] of Object.entries(CHARACTERS)){if(c.interactable===false)continue;const button=document.createElement('button');button.className='marker';button.innerHTML=`<span>${c.icon}</span>Talk to ${c.name.split(' · ')[0]}<span>↗</span>`;button.style.display='none';button.setAttribute('aria-label',`${c.label}: ${c.name}`);button.onclick=()=>talk(id);$('markers').append(button);markerButtons.push({id,c,button});}
 for(const colour of BALLOON_COLOURS){const button=document.createElement('button');button.className='colour-swatch';button.style.background=colour.hex;button.dataset.hex=colour.hex;button.setAttribute('aria-label',colour.name+' balloon');button.setAttribute('aria-pressed','false');button.onclick=()=>selectBalloon(colour.hex,colour.name);$('colour-swatches').append(button);}
@@ -152,17 +180,17 @@ addEventListener('keydown',e=>{
 addEventListener('keyup',e=>world?.setKey(e.key.toLowerCase(),false));addEventListener('blur',stopWalking);
 joystick=installJoystick($('move-joystick'),{onMove:(right,forward)=>world?.setMoveInput(right,forward),canMove:()=>state.started&&!state.inputPaused&&!state.queuing&&!world?.locked&&!world?.suspended});
 $('landscape-modal').addEventListener('cancel',event=>event.preventDefault());
-document.addEventListener('visibilitychange',()=>{stopWalking();if(document.hidden){$('dhak-audio').pause();stopVoice();}else if(state.sound)$('dhak-audio').play().catch(()=>sound(false));});
+document.addEventListener('visibilitychange',()=>{stopWalking();if(document.hidden){$('dhak-audio').pause();stopVoice();stopChorus();}else if(state.sound)$('dhak-audio').play().catch(()=>sound(false));});
 function placeMarker(button,p){const half=(button.offsetWidth||0)/2;button.style.left=`${Math.max(half+12,Math.min(innerWidth-half-12,p.x))}px`;button.style.top=`${p.y}px`;}
 function onFrame(position){
- if(!world?.renderer||!state.started)return;const occupied=[];
- const cameraMarker=$('camera-marker'),cameraPoint=world.project([PHOTO_SPOT.camera[0],2.45,PHOTO_SPOT.camera[2]]);cameraMarker.hidden=!(cameraPoint.visible&&nearPhotoBooth()&&!state.inputPaused);if(!cameraMarker.hidden){placeMarker(cameraMarker,cameraPoint);occupied.push(cameraPoint);}
- for(const m of markerButtons){const anchor=personPosition(m.id),p=world.project(anchor),d=Math.hypot(position.x-anchor[0],position.z-anchor[2]);let visible=p.visible&&canInteract(m.id);if(visible&&occupied.some(q=>Math.abs(q.x-p.x)<150&&Math.abs(q.y-p.y)<48))visible=false;if(visible)occupied.push(p);m.button.style.display=visible?'flex':'none';if(visible){placeMarker(m.button,p);m.button.dataset.distance=d;}}
+ if(!world?.renderer||!state.started)return;const occupied=[],ritualPoint=updateRitualUI();if(ritualPoint)occupied.push(ritualPoint);
+ const cameraMarker=$('camera-marker'),cameraPoint=world.project([PHOTO_SPOT.camera[0],2.45,PHOTO_SPOT.camera[2]]);cameraMarker.hidden=!(cameraPoint.visible&&nearPhotoBooth()&&!state.inputPaused&&!world.renderCamera);if(!cameraMarker.hidden){placeMarker(cameraMarker,cameraPoint);occupied.push(cameraPoint);}
+ for(const m of markerButtons){const anchor=personPosition(m.id),p=world.project(anchor),d=Math.hypot(position.x-anchor[0],position.z-anchor[2]);let visible=!world.renderCamera&&p.visible&&canInteract(m.id);if(visible&&occupied.some(q=>Math.abs(q.x-p.x)<150&&Math.abs(q.y-p.y)<48))visible=false;if(visible)occupied.push(p);m.button.style.display=visible?'flex':'none';if(visible){placeMarker(m.button,p);m.button.dataset.distance=d;}}
  if(state.currentCharacter&&!$('dialogue').classList.contains('hidden')&&!canInteract(state.currentCharacter.id))closeDialogue();
 
  if(!world.target&&!state.queuing)$('location').textContent=position.z<0?'Inside the pandal':position.x<-6?'The cha & street food lane':position.x>6?'The fairground & mishti corner':'The neighbourhood lane';
 }
-try{world=new PujoWorld($('world'),{onFrame,onMove:()=>{if(performance.now()-lastQueueNotice>7000){lastQueueNotice=performance.now();toast('Join the queue at the entrance to step inside the pandal.');}},onReady:ready,onFail:fail});}catch(error){fail(error);}
-addEventListener('pageshow',stopWalking);updateTouchControls();updateJourney();selectBalloon(selectedBalloon.hex,selectedBalloon.name);
+try{world=new PujoWorld($('world'),{onFrame,onMove:()=>{if(performance.now()-lastQueueNotice>7000){lastQueueNotice=performance.now();toast('Join the queue at the entrance to step inside the pandal.');}},onReady:ready,onFail:fail});if(world?.renderer)rituals=world.rituals=new PujaRituals(world,{onChant:chant});}catch(error){fail(error);}
+addEventListener('pageshow',stopWalking);updateTouchControls();applyPujaUI();selectBalloon(selectedBalloon.hex,selectedBalloon.name);
 
 try{const saved=JSON.parse(sessionStorage.getItem('pujo-balloon'));if(saved){const choice=balloonChoice(saved.hex,saved.name);if(choice){state.balloon=choice;showCompanion();}}}catch{}

@@ -218,7 +218,7 @@ export class PujoWorld {
   // Bengali priest, dhoti and uttariya, facing Maa and circling the arati lamp.
   const priest=this.person(.35,-17.5,{outfit:'#e6d6b4',priest:true,rotation:Math.atan2(-.35,-3.75),pose:'arati'});this.priest=priest;priest.nonInteractable=true;priest.arms[1].rotation.x=-1.3;
   const lampGroup=new THREE.Group();priest.body.add(lampGroup);lampGroup.position.set(.43,1.4,.52);this.cyl('#b39745',[0,0,0],[.25,.05,.25],lampGroup);for(let i=0;i<5;i++){const a=i/5*Math.PI*2;this.ball('#ffe5a0',[Math.cos(a)*.18,.12,Math.sin(a)*.18],[.035,.13,.035],lampGroup,{emissive:'#ffb13a',emissiveIntensity:3});}
-  this.animations.push(t=>{if(this.reduced)return;lampGroup.position.x=.36+Math.sin(t*1.7)*.25;lampGroup.position.y=1.5+Math.cos(t*1.7)*.16;priest.arms[1].rotation.z=.15+Math.sin(t*1.7)*.2;});
+  this.priestLamp=lampGroup;this.animations.push(t=>{if(this.reduced||(this.pujaMode&&this.pujaMode!=='saptami'))return;lampGroup.position.x=.36+Math.sin(t*1.7)*.25;lampGroup.position.y=1.5+Math.cos(t*1.7)*.16;priest.arms[1].rotation.z=.15+Math.sin(t*1.7)*.2;});
   // Dhaki with a suspended cylindrical dhak, carrying strap, ropes and two curved sticks.
   const dhaki=this.person(-6.5,-7.7,{outfit:'#dfcbac',rotation:.55,pose:'dhak'});const drum=new THREE.Group();dhaki.body.add(drum);drum.position.set(0,.95,.48);drum.rotation.z=.27;const barrel=this.mesh(new THREE.CylinderGeometry(.31,.33,.85,16), '#97452e',[0,0,0],null,drum);barrel.rotation.z=Math.PI/2;
   for(let xx of [-.44,.44]){const head=this.cyl('#d5bd87',[xx,0,0],[.34,.045,.34],drum);head.rotation.z=Math.PI/2;const rim=new THREE.Mesh(new THREE.TorusGeometry(.34,.025,6,20),this.mat('#c9a66a'));rim.rotation.y=Math.PI/2;rim.position.x=xx;drum.add(rim);}for(let i=0;i<10;i++){const a=i/10*Math.PI*2;this.rod([-.42,Math.cos(a)*.33,Math.sin(a)*.33],[.42,Math.cos(a+.5)*.33,Math.sin(a+.5)*.33],.012,'#e0caa2',drum);}
@@ -240,7 +240,7 @@ export class PujoWorld {
  }
  bind(){
   this.resize=()=>{this.camera.aspect=innerWidth/innerHeight;this.camera.fov=innerWidth<650?62:54;this.camera.updateProjectionMatrix();this.renderer.setPixelRatio(Math.min(devicePixelRatio,Math.min(innerWidth,innerHeight)<650?1.25:1.5));this.renderer.setSize(innerWidth,innerHeight);};addEventListener('resize',this.resize);
-  this.canvas.addEventListener('pointerdown',e=>{if(!this.started||this.locked)return;this.drag={x:e.clientX,y:e.clientY,id:e.pointerId};this.cancelMove();this.canvas.setPointerCapture(e.pointerId);});
+  this.canvas.addEventListener('pointerdown',e=>{if(!this.started||this.locked||this.ritualLocked)return;this.drag={x:e.clientX,y:e.clientY,id:e.pointerId};this.cancelMove();this.canvas.setPointerCapture(e.pointerId);});
   this.canvas.addEventListener('pointermove',e=>{if(!this.drag)return;this.yaw-=(e.clientX-this.drag.x)*.004;this.pitch=Math.max(-.65,Math.min(.6,this.pitch-(e.clientY-this.drag.y)*.003));this.drag.x=e.clientX;this.drag.y=e.clientY;});
   const release=()=>{this.drag=null;};this.canvas.addEventListener('pointerup',release);this.canvas.addEventListener('pointercancel',release);
  }
@@ -249,7 +249,7 @@ export class PujoWorld {
  greet(id){greetPerson(this,id);}
  startFireworks(){this.fireworks.elapsed=0;this.fireworks.active=true;this.fireworks.points.visible=true;updateFireworks(this,0);}
  stopFireworks(){this.fireworks.active=false;this.fireworks.points.visible=false;}
- obstacles(){const obstacles=this.people.map(p=>({x:p.g.position.x,z:p.g.position.z,radius:p.radius}));if(this.photoRig)obstacles.push({x:0,z:14.5,radius:.47});return obstacles;}
+ obstacles(){const obstacles=this.people.filter(p=>!p.ritualHidden).map(p=>({x:p.g.position.x,z:p.g.position.z,radius:p.radius}));if(this.photoRig)obstacles.push({x:0,z:14.5,radius:.47});return obstacles.concat(this.rituals?.obstacles()||[]);}
  joinQueue(onUpdate=()=>{}){this.stop();this.cancelMove();this.locked=true;return new Promise(resolve=>{this.queueRun={elapsed:0,resolve,onUpdate,released:false};});}
  updateQueue(dt){const run=this.queueRun;if(!run)return;run.elapsed+=dt;const snap=queueSnapshot(run.elapsed);this.queuePeople.forEach((p,i)=>{const q=snap.people[i];p.g.position.set(q.x,q.z<1?.4:0,q.z);p.g.rotation.y=q.yaw;if(!this.reduced){p.arms[0].rotation.x=Math.sin(run.elapsed*9+i)*.15;p.arms[1].rotation.x=-Math.sin(run.elapsed*9+i)*.15;}});
   if(!run.released){this.camera.position.set(snap.player.x,snap.player.z<1?2.1:1.9,snap.player.z);this.yaw=snap.player.yaw+Math.PI;this.pitch=.04;run.onUpdate(snap);if(snap.done){this.hasEntered=true;this.locked=false;run.released=true;run.resolve();}}
@@ -258,7 +258,7 @@ export class PujoWorld {
  go(position,look,{immediate=false}={}){this.cancelMove();const p=new THREE.Vector3(...position),l=new THREE.Vector3(...look),v=l.clone().sub(p).normalize(),yaw=Math.atan2(-v.x,-v.z),pitch=Math.asin(v.y);const walkable=({x,z})=>{const [a,b]=constrainWalk(x,z,this.hasEntered);return Math.abs(a-x)<.02&&Math.abs(b-z)<.02;};const waypoints=crowdPath(this.camera.position,p,this.obstacles(),walkable);if(!waypoints.length)return Promise.resolve();const end=waypoints.at(-1);p.x=end.x;p.z=end.z;if(immediate){this.camera.position.copy(p);this.yaw=yaw;this.pitch=pitch;return Promise.resolve();}return new Promise(resolve=>{this.target={p,yaw,pitch,resolve,waypoints,index:0};});}
  cancelMove(){if(this.target){const resolve=this.target.resolve;this.target=null;resolve();}}
  setKey(key,down){if(down&&!this.locked)this.keys.add(key);else this.keys.delete(key);if(down&&!this.locked)this.cancelMove();}
- setMoveInput(right,forward){if(this.locked||this.suspended||!Number.isFinite(right)||!Number.isFinite(forward)){this.moveInput={right:0,forward:0};return;}const length=Math.max(1,Math.hypot(right,forward));this.moveInput={right:right/length,forward:forward/length};if(right||forward)this.cancelMove();}
+ setMoveInput(right,forward){if(this.locked||this.suspended||this.ritualLocked||!Number.isFinite(right)||!Number.isFinite(forward)){this.moveInput={right:0,forward:0};return;}const length=Math.max(1,Math.hypot(right,forward));this.moveInput={right:right/length,forward:forward/length};if(right||forward)this.cancelMove();}
  stop(){this.keys.clear();this.moveInput={right:0,forward:0};this.drag=null;}
  project(pos){const v=new THREE.Vector3(...pos).project(this.camera);return {x:(v.x*.5+.5)*innerWidth,y:(-.5*v.y+.5)*innerHeight,visible:v.z>0&&v.z<1&&Math.abs(v.x)<.94&&Math.abs(v.y)<.85};}
  frame(now){
@@ -266,13 +266,13 @@ export class PujoWorld {
   const dt=Math.min((now-this.last)/1000,.05);this.last=now;const t=now/1000;
   this.updateQueue(dt);updatePeople(this,dt);updateFireworks(this,dt);
   if(this.target){const tar=this.target,w=tar.waypoints[tar.index],from=this.camera.position,dist=Math.hypot(w.x-from.x,w.z-from.z),step=Math.min(dist,dt*5.5),next=moveAmongPeople(from,{x:from.x+(w.x-from.x)*step/(dist||1),z:from.z+(w.z-from.z)*step/(dist||1)},this.obstacles());from.x=next.x;from.z=next.z;from.y+=(tar.p.y-from.y)*Math.min(1,dt*5);const a=Math.atan2(Math.sin(tar.yaw-this.yaw),Math.cos(tar.yaw-this.yaw));this.yaw+=a*Math.min(1,dt*4);this.pitch+=(tar.pitch-this.pitch)*Math.min(1,dt*4);if(Math.hypot(from.x-w.x,from.z-w.z)<.035){if(tar.index<tar.waypoints.length-1)tar.index++;else if(Math.abs(a)<.01){this.target=null;tar.resolve();}}}
-  if(this.started&&!this.locked&&(this.keys.size||this.moveInput.right||this.moveInput.forward)){let {forward,right}=this.moveInput;for(let k of this.keys){if(['w','arrowup','forward'].includes(k))forward++;if(['s','arrowdown','back'].includes(k))forward--;if(['d','arrowright','right'].includes(k))right++;if(['a','arrowleft','left'].includes(k))right--;}
+  if(this.started&&!this.locked&&!this.ritualLocked&&(this.keys.size||this.moveInput.right||this.moveInput.forward)){let {forward,right}=this.moveInput;for(let k of this.keys){if(['w','arrowup','forward'].includes(k))forward++;if(['s','arrowdown','back'].includes(k))forward--;if(['d','arrowright','right'].includes(k))right++;if(['a','arrowleft','left'].includes(k))right--;}
    const norm=Math.max(1,Math.hypot(forward,right)),speed=dt*WALK_SPEED;const x=this.camera.position.x+(-Math.sin(this.yaw)*forward+Math.cos(this.yaw)*right)*speed/norm,z=this.camera.position.z+(-Math.cos(this.yaw)*forward-Math.sin(this.yaw)*right)*speed/norm;const [nx,nz]=constrainWalk(x,z,this.hasEntered);const safe=moveAmongPeople(this.camera.position,{x:nx,z:nz},this.obstacles());this.camera.position.x=safe.x;this.camera.position.z=safe.z;this.camera.position.y+=( (nz<1?2.1:1.9)-this.camera.position.y)*dt*6;if(z<1&&!this.hasEntered)this.onMove?.('queue');
   }
   this.camera.rotation.set(this.pitch,this.yaw,0,'YXZ');
   if(this.companionBalloon){this.companionBalloon.position.x=Math.min(1.05,.68*2.05*Math.tan(this.camera.fov*Math.PI/360)*this.camera.aspect);if(!this.reduced){this.companionBalloon.position.y=.38+Math.sin(t*1.5)*.035;this.companionBalloon.rotation.z=Math.sin(t*.8)*.045;}}
   for(const anim of this.animations)anim(t);
-  this.renderer.render(this.scene,this.camera);this.onFrame?.(this.camera.position,t);requestAnimationFrame(n=>this.frame(n));
+  this.rituals?.update(dt,t);this.renderer.render(this.scene,this.renderCamera||this.camera);this.onFrame?.(this.camera.position,t);requestAnimationFrame(n=>this.frame(n));
  }
- screenshot(){this.renderer.render(this.scene,this.camera);return this.canvas;}
+ screenshot(){this.renderer.render(this.scene,this.renderCamera||this.camera);return this.canvas;}
 }

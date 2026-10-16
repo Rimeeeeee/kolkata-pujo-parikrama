@@ -15,7 +15,7 @@ export function setPortrait(w,{outfit='sari',pose='namaskar'}={}){
  if(pose==='namaskar'){p.arms.forEach(a=>a.visible=false);for(const side of [-1,1]){w.rod([side*.215,1.48,0],[side*.30,1.09,.15],.055,'#a77b57',p.body);w.rod([side*.30,1.09,.15],[side*.025,1.43,.34],.045,'#a77b57',p.body);w.ball('#a77b57',[side*.025,1.47,.34],[.025,.09,.05],p.body);}}
  else if(pose==='wave'){p.arms[1].rotation.z=2.35;}
  else{p.arms[0].rotation.z=-.15;p.arms[1].rotation.x=-.35;}
- w.portraitActor=p;return p;
+ w.rituals?.decoratePortrait(p);w.portraitActor=p;return p;
 }
 export function capturePortrait(w,options){
  setPortrait(w,options);const width=1440,height=960,target=new THREE.WebGLRenderTarget(width,height);target.texture.colorSpace=THREE.SRGBColorSpace;
