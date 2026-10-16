@@ -1,5 +1,6 @@
 import * as THREE from './assets/three.module.js';
 import {buildRequestedAdditions} from './pujo-additions.js';
+import {alponaMaterials} from './alpona.js';
 import {buildPhotoBooth,capturePortrait} from './photo-booth.js';
 import {constrainWalk} from './game-state.js';
 import {queueSnapshot,moveAmongPeople,crowdPath,WALK_SPEED} from './movement.js';
@@ -160,11 +161,8 @@ export class PujoWorld {
   this.scene.updateMatrixWorld(true);const groups=new Map();this.scene.traverse(o=>{if(!o.isMesh||o.isInstancedMesh||!Object.values(this.geometries).includes(o.geometry))return;const key=o.geometry.uuid+o.material.uuid,b=groups.get(key)||{geo:o.geometry,mat:o.material,objects:[]};b.objects.push(o);groups.set(key,b);});for(const b of groups.values()){if(b.objects.length<3)continue;const mesh=new THREE.InstancedMesh(b.geo,b.mat,b.objects.length);mesh.name='instanced-street';b.objects.forEach((o,i)=>{mesh.setMatrixAt(i,o.matrixWorld);o.visible=false;});this.scene.add(mesh);}
  }
  alpona(z,size){
-  const c=document.createElement('canvas');c.width=c.height=1024;const x=c.getContext('2d');x.translate(512,512);x.strokeStyle='#fff1cf';x.fillStyle='#fff1cf';x.lineWidth=3;
-  const circle=(r)=>{x.beginPath();x.arc(0,0,r,0,Math.PI*2);x.stroke();};for(const r of [55,75,130,145,280,293,440,450])circle(r);
-  for(let i=0;i<24;i++){x.save();x.rotate(i*Math.PI/12);x.beginPath();x.moveTo(0,145);x.bezierCurveTo(-65,210,-65,280,0,365);x.bezierCurveTo(65,280,65,210,0,145);x.stroke();x.beginPath();x.moveTo(0,293);x.bezierCurveTo(-26,345,-26,390,0,432);x.bezierCurveTo(26,390,26,345,0,293);x.stroke();x.beginPath();x.arc(0,475,5,0,Math.PI*2);x.fill();x.restore();}
-  for(let i=0;i<72;i++){const a=i*Math.PI/36;x.beginPath();x.arc(Math.cos(a)*395,Math.sin(a)*395,3,0,Math.PI*2);x.fill();}
-  const texture=new THREE.CanvasTexture(c);const mesh=new THREE.Mesh(new THREE.PlaneGeometry(size,size),new THREE.MeshBasicMaterial({map:texture,transparent:true,depthWrite:false,side:THREE.DoubleSide}));mesh.rotation.x=-Math.PI/2;mesh.position.set(0,z>0?.03:.405,z);mesh.name='rice-paste-alpona';this.scene.add(mesh);this.alponas.push(mesh);
+  this.alponaPalette??=alponaMaterials();const material=this.alponaPalette[this.alponas.length%this.alponaPalette.length];
+  const mesh=new THREE.Mesh(new THREE.PlaneGeometry(size,size),material);mesh.rotation.x=-Math.PI/2;mesh.position.set(0,z>0?.035:.408,z);mesh.name='rice-paste-alpona';this.scene.add(mesh);this.alponas.push(mesh);
  }
  windowBay(side,z,red){
   if(!this.shutterTexture){const c=document.createElement('canvas');c.width=512;c.height=768;const x=c.getContext('2d');x.fillStyle='#233c36';x.fillRect(0,0,512,768);for(let i=0;i<30;i++){x.fillStyle=i%3?'#476456':'#536d5c';x.fillRect(18,20+i*24,476,15);x.fillStyle='#162b27';x.fillRect(18,35+i*24,476,5);}x.fillStyle='#b89757';for(const yy of [190,570])for(const xx of [27,472])x.fillRect(xx,yy,12,27);this.shutterTexture=new THREE.CanvasTexture(c);this.shutterTexture.colorSpace=THREE.SRGBColorSpace;}

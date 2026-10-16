@@ -10,11 +10,16 @@ import {PHOTO_SPOT,drawPortraitCard} from './photo-booth.js';
 import {mobileLayout,installJoystick} from './touch-controls.js';
 import {PUJA_MODES} from './puja-state.js';
 import {PujaRituals} from './puja-rituals.js';
+import {MemoryAlbum,ALBUM_LIMIT} from './memory-album.js';
+import {drawAlbumCollage} from './album-collage.js';
 
 const $=id=>document.getElementById(id);
 const state={started:false,entered:false,queuing:false,sound:false,moments:new Set(),round:newRangeRound(),currentCharacter:null,place:'street',inputPaused:false,balloon:null,purchases:[],shop:null,watchingFireworks:false,pujaMode:'saptami'};
 let world=null,range=null,joystick=null,rituals=null,lastRitualUI='',toastTimer=0,lastQueueNotice=0,voiceAudio=null,postcardSnapshot=null,portraitSnapshot=null;
 const portraitOptions={outfit:'sari',pose:'namaskar'};
+const album=new MemoryAlbum(),captionDrafts=new Map();
+const albumSaveRevisions={postcard:0,portrait:0};
+let postcardMoment=null,portraitMoment=null,albumFilter='all',lastRemovedMemory=null,collageRevision=0,collageBusy=false;
 let selectedBalloon=balloonChoice(BALLOON_COLOURS[0].hex,BALLOON_COLOURS[0].name);
 function toast(message){clearTimeout(toastTimer);$('toast').textContent=message;$('toast').classList.add('show');toastTimer=setTimeout(()=>$('toast').classList.remove('show'),4300);}
 function ready(){$('loading').classList.add('done');setTimeout(()=>$('loading').remove(),700);}
@@ -86,9 +91,9 @@ async function go(id){
 async function joinQueue(){
  begin({audio:false});closeDialogue();if(state.queuing)return;if(state.entered){await go('inside');return;}
  state.queuing=true;pauseInput();if(world)world.locked=true;$('next-moment').disabled=true;$('next-moment').textContent='Following the queue…';toast('You’ve joined the queue. Arjun will guide you inside.');
- $('places').disabled=true;$('photo').disabled=true;$('fireworks').disabled=true;$('puja-mode').disabled=true;
+ $('places').disabled=true;$('photo').disabled=true;$('album').disabled=true;$('fireworks').disabled=true;$('puja-mode').disabled=true;
  if(world?.renderer){const tail=queueSnapshot(0).player;await world.go([tail.x,1.9,tail.z],[tail.x,1.8,tail.z-3]);await world.joinQueue(snap=>{$('next-moment').textContent=snap.ahead?`${snap.ahead} people ahead · ${snap.moving?'Following the line…':'Waiting with the neighbours…'}`:'Your turn · stepping inside…';});}
- $('places').disabled=false;$('photo').disabled=false;$('fireworks').disabled=false;
+ $('places').disabled=false;$('photo').disabled=false;$('album').disabled=false;$('fireworks').disabled=false;
 
  state.entered=true;state.queuing=false;if(world)world.locked=false;state.place='inside';mark('inside');$('next-moment').disabled=false;$('location').textContent='Inside the pandal';$('scene-caption').innerHTML=`<span>${PUJA_MODES[state.pujaMode].time}</span><p>${PUJA_MODES[state.pujaMode].description}</p>`;applyPujaUI();resumeInput();toast('শুভ শারদীয়া! Welcome inside the pandal.');
 }
@@ -119,16 +124,54 @@ function openGame(){
 }
 function updatePostcard(){
  if(!postcardSnapshot)return;const name=postcardName($('postcard-name').value);const canvas=document.createElement('canvas');const data=drawPostcard(canvas,postcardSnapshot,name);$('postcard-image').src=data;$('download-postcard').href=data;$('download-postcard').download=name?`pujo-postcard-${name.replace(/[^\p{L}\p{M}\p{N}]+/gu,'-')}.png`:'a-kolkata-pujo-evening.png';
+ resetAlbumSave('postcard');
 }
 function postcard(){
  if(state.queuing)return;
  begin({audio:false});if(!world?.renderer){toast('Postcards need the 3D view. You can still explore the neighbourhood stories.');return;}
- try{const source=world.screenshot();postcardSnapshot=document.createElement('canvas');postcardSnapshot.width=source.width;postcardSnapshot.height=source.height;postcardSnapshot.getContext('2d').drawImage(source,0,0);updatePostcard();openModal('postcard-modal');}catch(error){console.warn(error);toast('The postcard could not be saved in this browser. Try another view.');}
+ try{const source=world.screenshot();postcardMoment=memoryMoment();postcardSnapshot=document.createElement('canvas');postcardSnapshot.width=source.width;postcardSnapshot.height=source.height;postcardSnapshot.getContext('2d').drawImage(source,0,0);updatePostcard();openModal('postcard-modal');}catch(error){console.warn(error);toast('The postcard could not be saved in this browser. Try another view.');}
 }
 function nearPhotoBooth(){return world?.renderer&&withinReach(world.camera.position,{x:PHOTO_SPOT.camera[0],z:PHOTO_SPOT.camera[2]},{entered:state.entered,queuing:state.queuing});}
-function updatePortraitCard(){if(!portraitSnapshot)return;const name=postcardName($('portrait-name').value),canvas=document.createElement('canvas');const url=drawPortraitCard(canvas,portraitSnapshot,name,portraitOptions.outfit);$('portrait-image').src=url;$('download-portrait').href=url;$('download-portrait').setAttribute('aria-disabled','false');$('download-portrait').download=`kolkata-pujo-${portraitOptions.outfit}${name?'-'+name.replace(/[^\p{L}\p{M}\p{N}]+/gu,'-'):''}.png`;}
-function takePortrait(){if(!nearPhotoBooth()){toast('Come closer to the camera to take your Puja portrait.');return;}portraitOptions.outfit=$('portrait-outfit').value||'sari';portraitOptions.pose=$('portrait-pose').value||'namaskar';try{portraitSnapshot=world.capturePortrait(portraitOptions);updatePortraitCard();$('portrait-message').textContent='Your portrait is ready. The pandal is behind you. Save it below.';}catch(error){portraitSnapshot=null;$('portrait-image').removeAttribute('src');$('download-portrait').removeAttribute('href');$('download-portrait').setAttribute('aria-disabled','true');console.warn('Portrait unavailable',error);$('portrait-message').textContent='The portrait could not be rendered. Try again in a browser with graphics acceleration.';}}
+function updatePortraitCard(){if(!portraitSnapshot)return;const name=postcardName($('portrait-name').value),canvas=document.createElement('canvas');const url=drawPortraitCard(canvas,portraitSnapshot,name,portraitOptions.outfit);$('portrait-image').src=url;$('download-portrait').href=url;$('download-portrait').setAttribute('aria-disabled','false');$('download-portrait').download=`kolkata-pujo-${portraitOptions.outfit}${name?'-'+name.replace(/[^\p{L}\p{M}\p{N}]+/gu,'-'):''}.png`;resetAlbumSave('portrait');}
+function takePortrait(){if(!nearPhotoBooth()){toast('Come closer to the camera to take your Puja portrait.');return;}portraitOptions.outfit=$('portrait-outfit').value||'sari';portraitOptions.pose=$('portrait-pose').value||'namaskar';try{portraitSnapshot=world.capturePortrait(portraitOptions);portraitMoment={...memoryMoment(),...portraitOptions};updatePortraitCard();$('portrait-message').textContent='Your portrait is ready. The pandal is behind you. Save it below.';}catch(error){portraitSnapshot=null;resetAlbumSave('portrait',true);$('portrait-image').removeAttribute('src');$('download-portrait').removeAttribute('href');$('download-portrait').setAttribute('aria-disabled','true');console.warn('Portrait unavailable',error);$('portrait-message').textContent='The portrait could not be rendered. Try again in a browser with graphics acceleration.';}}
 async function openPhotoBooth({walk=true}={}){if(state.queuing)return;begin({audio:false});if(!world?.renderer){toast('Dress-up portraits need the 3D view.');return;}closeDialogue();if(walk){$('postcard-modal').close();await go('portrait');}if(!nearPhotoBooth()){toast('Walk up to the tripod camera in front of the pandal.');return;}openModal('portrait-modal');takePortrait();}
+function memoryMoment(){return {mode:state.pujaMode,place:$('location').textContent||'The neighbourhood',capturedAt:new Date().toISOString()};}
+function resetAlbumSave(kind,disabled=false){albumSaveRevisions[kind]++;$(`save-${kind}-album`).disabled=disabled;$(`save-${kind}-album`).textContent='Add to album +';$(`${kind}-album-message`).textContent='';}
+function invalidateAlbumDownload(){collageRevision++;$('album-download').removeAttribute('href');$('album-collage-image').removeAttribute('src');$('album-collage').hidden=true;}
+async function refreshAlbumCount(){const entries=await album.list();$('album-label').textContent=entries.length?`Album (${entries.length})`:'Album';$('album').setAttribute('aria-label',`Open Pujo memory album (${entries.length} ${entries.length===1?'memory':'memories'})`);}
+async function saveMemory(kind){
+ const button=$(`save-${kind}-album`),message=$(`${kind}-album-message`),moment=kind==='portrait'?portraitMoment:postcardMoment,image=$(`download-${kind}`).href,revision=albumSaveRevisions[kind];
+ if(!moment||!(kind==='portrait'?portraitSnapshot:postcardSnapshot)||!image?.startsWith('data:image/png;base64,'))return;
+ button.disabled=true;message.textContent='Adding your memory…';
+ try{
+  let thumbnail=null;const source=$(`${kind}-image`);if(source.complete&&source.naturalWidth){const c=document.createElement('canvas');c.width=360;c.height=Math.round(360*source.naturalHeight/source.naturalWidth);c.getContext('2d').drawImage(source,0,0,c.width,c.height);thumbnail=c.toDataURL('image/jpeg',.82);}
+  const result=await album.add({...moment,kind,image,thumbnail});if(revision===albumSaveRevisions[kind]){button.textContent='Saved to album ✓';message.textContent=result.duplicate?'This picture is already in your album.':album.persistent?'Saved to your album in this browser.':'Saved for this page visit. Device storage is unavailable; download your album before leaving.';}invalidateAlbumDownload();await refreshAlbumCount();
+ }catch(error){if(revision===albumSaveRevisions[kind])message.textContent=error.message;}finally{if(revision===albumSaveRevisions[kind])button.disabled=false;}
+}
+async function flushAlbumCaptions(){for(const [id,caption] of [...captionDrafts]){await album.setCaption(id,caption);if(captionDrafts.get(id)===caption)captionDrafts.delete(id);}}
+async function openAlbum(){if(state.queuing)return;begin({audio:false});$('postcard-modal').close();$('portrait-modal').close();openModal('album-modal');albumFilter='all';$('album-status').textContent='Opening your memories…';await renderAlbum();}
+async function renderAlbum(){
+ const entries=await album.list();await refreshAlbumCount();if(!$('album-modal').open)return;
+ const days=new Set(entries.map(e=>e.mode));$('album-summary').textContent=`${days.size} of 4 Puja days · ${entries.length} / ${ALBUM_LIMIT} memories`;
+ $('album-storage').textContent=album.persistent?'Saved on this browser and device. Your photos and captions stay here; nothing is uploaded. Download a copy to keep or share.':'Device storage is unavailable. This album lasts for this page visit only. Download it before leaving.';
+ $('album-undo').hidden=!lastRemovedMemory;
+ const filters=$('album-filters');filters.replaceChildren();for(const mode of ['all',...Object.keys(PUJA_MODES)]){const button=document.createElement('button');button.className='album-filter';button.textContent=mode==='all'?'All memories':`${mode==='navami'?'Navami':mode[0].toUpperCase()+mode.slice(1)} (${entries.filter(e=>e.mode===mode).length})`;button.setAttribute('aria-pressed',String(albumFilter===mode));button.onclick=async()=>{try{await flushAlbumCaptions();albumFilter=mode;invalidateAlbumDownload();await renderAlbum();}catch(error){$('album-status').textContent=error.message;}};filters.append(button);}
+ const visible=entries.filter(e=>albumFilter==='all'||e.mode===albumFilter),grid=$('album-grid');$('album-export').disabled=collageBusy||!visible.length;grid.replaceChildren();$('album-empty').hidden=!!visible.length;$('album-empty-copy').textContent=entries.length?'No memories from this day yet. Choose the day, then add a postcard or portrait.':'Your album starts with one little memory. Take a postcard, or dress up at the tripod camera.';
+ for(const [index,entry] of visible.entries()){
+  const card=document.createElement('article');card.className='album-card';const image=document.createElement('img');image.src=entry.thumbnail||entry.image;image.alt=`${PUJA_MODES[entry.mode].title} · ${entry.kind}${entry.outfit?' · '+entry.outfit:''}`;image.loading='lazy';image.decoding='async';card.append(image);
+  const details=document.createElement('div');details.className='album-card-copy';const day=document.createElement('h3');day.textContent=PUJA_MODES[entry.mode].title;details.append(day);
+  const description=document.createElement('p');description.textContent=`${entry.kind==='portrait'?(entry.outfit==='sari'?'Sari portrait':'Dhoti kurta portrait'):'Postcard'} · ${entry.place}`;details.append(description);
+  const label=document.createElement('label');label.textContent=`Caption for ${PUJA_MODES[entry.mode].title} ${entry.kind} ${index+1}`;const input=document.createElement('input');input.type='text';input.maxLength=160;input.value=captionDrafts.get(entry.id)??entry.caption;input.placeholder='A little moment to remember…';label.append(input);details.append(label);
+  input.oninput=()=>{captionDrafts.set(entry.id,input.value);invalidateAlbumDownload();};input.onchange=async()=>{try{await flushAlbumCaptions();$('album-status').textContent='Caption saved.';}catch(error){$('album-status').textContent=error.message;}};
+  const actions=document.createElement('div');actions.className='album-card-actions';const download=document.createElement('a');download.className='text-button';download.textContent='Save PNG ↓';download.href=entry.image;download.download=`pujo-${entry.mode}-${entry.kind}-${index+1}.png`;actions.append(download);
+  const remove=document.createElement('button');remove.className='text-button';remove.textContent='Remove';remove.setAttribute('aria-label',`Remove ${PUJA_MODES[entry.mode].title} ${entry.kind} ${index+1}`);remove.onclick=async()=>{remove.disabled=true;try{await flushAlbumCaptions();lastRemovedMemory=await album.remove(entry.id);captionDrafts.delete(entry.id);invalidateAlbumDownload();await renderAlbum();$('album-status').textContent='Memory removed. You can undo the last removal.';}catch(error){$('album-status').textContent=error.message;remove.disabled=false;}};actions.append(remove);details.append(actions);card.append(details);grid.append(card);
+ }
+ $('album-status').textContent=entries.length?'Create a collage of the memories shown here, with your captions. Or save each full-size PNG below.':'Add a postcard or portrait to begin collecting all four days.';
+}
+async function downloadAlbum(){
+ if(collageBusy)return;collageBusy=true;const button=$('album-export');button.disabled=true;invalidateAlbumDownload();const revision=collageRevision,filter=albumFilter;$('album-status').textContent='Arranging your photos and captions…';
+ try{await flushAlbumCaptions();const entries=(await album.list()).filter(e=>filter==='all'||e.mode===filter),url=await drawAlbumCollage(document.createElement('canvas'),entries);if(revision!==collageRevision)return;const link=$('album-download');link.href=url;link.download='my-pujo-memory-collage.png';$('album-collage-image').src=url;$('album-collage').hidden=false;$('album-status').textContent=`Your collage is ready with ${entries.length} ${entries.length===1?'memory':'memories'}. Save the PNG below, or download individual pictures.`;}catch(error){if(revision===collageRevision)$('album-status').textContent=error.message;}finally{collageBusy=false;button.disabled=!(await album.list()).some(e=>albumFilter==='all'||e.mode===albumFilter);}
+}
 async function watchFireworks(){
  if(state.queuing||!PUJA_MODES[state.pujaMode].fireworks)return;if(world?.ritualLocked)leaveRitual();begin({audio:false});closeDialogue();
  if(!world?.renderer){toast('Fireworks need the 3D view.');return;}
@@ -161,6 +204,10 @@ let fireworksReturn=null;
 $('begin').onclick=()=>begin();$('portrait-outfit').onchange=takePortrait;$('portrait-pose').onchange=takePortrait;$('take-portrait').onclick=takePortrait;$('portrait-name').oninput=updatePortraitCard;$('postcard-dress-up').onclick=()=>openPhotoBooth();$('fireworks').onclick=watchFireworks;$('sound').onclick=()=>sound(!state.sound);$('guide').onclick=()=>openModal('guide-modal');$('places').onclick=()=>openModal('places-modal');$('fallback-explore').onclick=()=>openModal('places-modal');$('references').onclick=()=>{$('guide-modal').close();openModal('credits-modal');};$('photo').onclick=postcard;
 document.querySelector('.brand').onclick=e=>{e.preventDefault();go('street');};
 $('puja-mode').onclick=()=>openModal('puja-modal');for(const mode of Object.keys(PUJA_MODES))$('mode-'+mode).onclick=()=>switchPuja(mode);$('ritual-go').onclick=goRitual;$('ritual-start').onclick=startRitual;$('ritual-perform').onclick=performRitual;$('ritual-leave').onclick=leaveRitual;$('ritual-marker').onclick=startRitual;
+$('album').onclick=openAlbum;$('save-postcard-album').onclick=()=>saveMemory('postcard');$('save-portrait-album').onclick=()=>saveMemory('portrait');$('postcard-view-album').onclick=openAlbum;$('portrait-view-album').onclick=openAlbum;$('album-export').onclick=downloadAlbum;
+$('album-undo').onclick=async()=>{try{if(lastRemovedMemory){await album.restore(lastRemovedMemory);lastRemovedMemory=null;invalidateAlbumDownload();await renderAlbum();$('album-status').textContent='Memory restored.';}}catch(error){$('album-status').textContent=error.message;}};
+$('album-take-photo').onclick=()=>{$('album-modal').close();postcard();};$('album-choose-day').onclick=()=>{$('album-modal').close();openModal('puja-modal');};
+$('album-modal').addEventListener('close',()=>{$('album-grid').replaceChildren();invalidateAlbumDownload();});refreshAlbumCount();
 document.querySelectorAll('[data-close]').forEach(button=>button.onclick=()=>button.closest('dialog').close());
 document.querySelectorAll('dialog').forEach(dialog=>{dialog.addEventListener('close',()=>{if(dialog.id==='game-modal')range?.stop();resumeInput();});dialog.addEventListener('click',event=>{if(event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)dialog.close();}});});
 $('close-dialogue').onclick=closeDialogue;$('translate').onclick=()=>{const hidden=$('dialogue-en').classList.toggle('hidden');$('translate').textContent=hidden?'Translate to English ↗':'Hide English translation ↑';};$('listen').onclick=()=>speakCharacter(state.currentCharacter?.id,{explicit:true});
