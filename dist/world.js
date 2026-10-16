@@ -2,16 +2,16 @@ import * as THREE from './assets/three.module.js';
 import {buildRequestedAdditions} from './pujo-additions.js';
 import {buildPhotoBooth,capturePortrait} from './photo-booth.js';
 import {constrainWalk} from './game-state.js';
-import {queueSnapshot,moveAmongPeople,crowdPath} from './movement.js';
+import {queueSnapshot,moveAmongPeople,crowdPath,WALK_SPEED} from './movement.js';
 import {buildStreetDetails,installPeopleLife,greetPerson,characterPosition,updatePeople,createFireworks,updateFireworks} from './scene-life.js';
 
 export class PujoWorld {
  constructor(canvas,{onFrame,onMove,onReady,onFail}){
-  this.canvas=canvas;this.onFrame=onFrame;this.onMove=onMove;this.onReady=onReady;this.onFail=onFail;this.animations=[];this.people=[];this.keys=new Set();this.started=false;this.hasEntered=false;this.reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  this.canvas=canvas;this.onFrame=onFrame;this.onMove=onMove;this.onReady=onReady;this.onFail=onFail;this.animations=[];this.people=[];this.keys=new Set();this.moveInput={right:0,forward:0};this.started=false;this.hasEntered=false;this.reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
   this.scene=new THREE.Scene();this.scene.background=new THREE.Color('#363342');this.scene.fog=new THREE.FogExp2('#39313d',.017);
   this.camera=new THREE.PerspectiveCamera(innerWidth<650?62:54,innerWidth/innerHeight,.1,100);this.camera.position.set(3,3.2,25);this.scene.add(this.camera);this.yaw=.1;this.pitch=-.025;this.target=null;
   try{this.renderer=new THREE.WebGLRenderer({canvas,antialias:true,preserveDrawingBuffer:true,powerPreference:'high-performance'});}catch(e){onFail(e);return;}
-  this.renderer.setPixelRatio(Math.min(devicePixelRatio,innerWidth<650?1.25:1.5));this.renderer.setSize(innerWidth,innerHeight);this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.toneMapping=THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.4;
+  this.renderer.setPixelRatio(Math.min(devicePixelRatio,Math.min(innerWidth,innerHeight)<650?1.25:1.5));this.renderer.setSize(innerWidth,innerHeight);this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.toneMapping=THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.4;
   this.materials=new Map();this.geometries={box:new THREE.BoxGeometry(1,1,1),sphere:new THREE.SphereGeometry(1,12,8),cylinder:new THREE.CylinderGeometry(1,1,1,12),cone:new THREE.ConeGeometry(1,1,12)};
   this.scene.add(new THREE.HemisphereLight('#dad0e8','#59402c',2.2));const moon=new THREE.DirectionalLight('#fff1d4',2.5);moon.position.set(-8,16,13);this.scene.add(moon);
   this.point('#ffb15b',100,25,0,6,-8);this.point('#ffc86d',65,24,0,7,3);this.point('#ffb35c',55,14,-10,3.5,10);this.point('#ffce8b',40,12,10,3,12);
@@ -239,7 +239,7 @@ export class PujoWorld {
   this.line([[0,-.32,0],[-.025,-.65,.03],[-.2,-1.25,.3]],'#e4d1a9',group);this.companionBalloon=group;
  }
  bind(){
-  this.resize=()=>{this.camera.aspect=innerWidth/innerHeight;this.camera.fov=innerWidth<650?62:54;this.camera.updateProjectionMatrix();this.renderer.setPixelRatio(Math.min(devicePixelRatio,innerWidth<650?1.25:1.5));this.renderer.setSize(innerWidth,innerHeight);};addEventListener('resize',this.resize);
+  this.resize=()=>{this.camera.aspect=innerWidth/innerHeight;this.camera.fov=innerWidth<650?62:54;this.camera.updateProjectionMatrix();this.renderer.setPixelRatio(Math.min(devicePixelRatio,Math.min(innerWidth,innerHeight)<650?1.25:1.5));this.renderer.setSize(innerWidth,innerHeight);};addEventListener('resize',this.resize);
   this.canvas.addEventListener('pointerdown',e=>{if(!this.started||this.locked)return;this.drag={x:e.clientX,y:e.clientY,id:e.pointerId};this.cancelMove();this.canvas.setPointerCapture(e.pointerId);});
   this.canvas.addEventListener('pointermove',e=>{if(!this.drag)return;this.yaw-=(e.clientX-this.drag.x)*.004;this.pitch=Math.max(-.65,Math.min(.6,this.pitch-(e.clientY-this.drag.y)*.003));this.drag.x=e.clientX;this.drag.y=e.clientY;});
   const release=()=>{this.drag=null;};this.canvas.addEventListener('pointerup',release);this.canvas.addEventListener('pointercancel',release);
@@ -258,15 +258,16 @@ export class PujoWorld {
  go(position,look,{immediate=false}={}){this.cancelMove();const p=new THREE.Vector3(...position),l=new THREE.Vector3(...look),v=l.clone().sub(p).normalize(),yaw=Math.atan2(-v.x,-v.z),pitch=Math.asin(v.y);const walkable=({x,z})=>{const [a,b]=constrainWalk(x,z,this.hasEntered);return Math.abs(a-x)<.02&&Math.abs(b-z)<.02;};const waypoints=crowdPath(this.camera.position,p,this.obstacles(),walkable);if(!waypoints.length)return Promise.resolve();const end=waypoints.at(-1);p.x=end.x;p.z=end.z;if(immediate){this.camera.position.copy(p);this.yaw=yaw;this.pitch=pitch;return Promise.resolve();}return new Promise(resolve=>{this.target={p,yaw,pitch,resolve,waypoints,index:0};});}
  cancelMove(){if(this.target){const resolve=this.target.resolve;this.target=null;resolve();}}
  setKey(key,down){if(down&&!this.locked)this.keys.add(key);else this.keys.delete(key);if(down&&!this.locked)this.cancelMove();}
- stop(){this.keys.clear();}
+ setMoveInput(right,forward){if(this.locked||this.suspended||!Number.isFinite(right)||!Number.isFinite(forward)){this.moveInput={right:0,forward:0};return;}const length=Math.max(1,Math.hypot(right,forward));this.moveInput={right:right/length,forward:forward/length};if(right||forward)this.cancelMove();}
+ stop(){this.keys.clear();this.moveInput={right:0,forward:0};this.drag=null;}
  project(pos){const v=new THREE.Vector3(...pos).project(this.camera);return {x:(v.x*.5+.5)*innerWidth,y:(-.5*v.y+.5)*innerHeight,visible:v.z>0&&v.z<1&&Math.abs(v.x)<.94&&Math.abs(v.y)<.85};}
  frame(now){
   if(this.suspended){this.last=now;requestAnimationFrame(n=>this.frame(n));return;}
   const dt=Math.min((now-this.last)/1000,.05);this.last=now;const t=now/1000;
   this.updateQueue(dt);updatePeople(this,dt);updateFireworks(this,dt);
   if(this.target){const tar=this.target,w=tar.waypoints[tar.index],from=this.camera.position,dist=Math.hypot(w.x-from.x,w.z-from.z),step=Math.min(dist,dt*5.5),next=moveAmongPeople(from,{x:from.x+(w.x-from.x)*step/(dist||1),z:from.z+(w.z-from.z)*step/(dist||1)},this.obstacles());from.x=next.x;from.z=next.z;from.y+=(tar.p.y-from.y)*Math.min(1,dt*5);const a=Math.atan2(Math.sin(tar.yaw-this.yaw),Math.cos(tar.yaw-this.yaw));this.yaw+=a*Math.min(1,dt*4);this.pitch+=(tar.pitch-this.pitch)*Math.min(1,dt*4);if(Math.hypot(from.x-w.x,from.z-w.z)<.035){if(tar.index<tar.waypoints.length-1)tar.index++;else if(Math.abs(a)<.01){this.target=null;tar.resolve();}}}
-  if(this.started&&!this.locked&&this.keys.size){let forward=0,right=0;for(let k of this.keys){if(['w','arrowup','forward'].includes(k))forward++;if(['s','arrowdown','back'].includes(k))forward--;if(['d','arrowright','right'].includes(k))right++;if(['a','arrowleft','left'].includes(k))right--;}
-   const norm=Math.hypot(forward,right)||1;const speed=dt*3.4;const x=this.camera.position.x+(-Math.sin(this.yaw)*forward+Math.cos(this.yaw)*right)*speed/norm,z=this.camera.position.z+(-Math.cos(this.yaw)*forward-Math.sin(this.yaw)*right)*speed/norm;const [nx,nz]=constrainWalk(x,z,this.hasEntered);const safe=moveAmongPeople(this.camera.position,{x:nx,z:nz},this.obstacles());this.camera.position.x=safe.x;this.camera.position.z=safe.z;this.camera.position.y+=( (nz<1?2.1:1.9)-this.camera.position.y)*dt*6;if(z<1&&!this.hasEntered)this.onMove?.('queue');
+  if(this.started&&!this.locked&&(this.keys.size||this.moveInput.right||this.moveInput.forward)){let {forward,right}=this.moveInput;for(let k of this.keys){if(['w','arrowup','forward'].includes(k))forward++;if(['s','arrowdown','back'].includes(k))forward--;if(['d','arrowright','right'].includes(k))right++;if(['a','arrowleft','left'].includes(k))right--;}
+   const norm=Math.max(1,Math.hypot(forward,right)),speed=dt*WALK_SPEED;const x=this.camera.position.x+(-Math.sin(this.yaw)*forward+Math.cos(this.yaw)*right)*speed/norm,z=this.camera.position.z+(-Math.cos(this.yaw)*forward-Math.sin(this.yaw)*right)*speed/norm;const [nx,nz]=constrainWalk(x,z,this.hasEntered);const safe=moveAmongPeople(this.camera.position,{x:nx,z:nz},this.obstacles());this.camera.position.x=safe.x;this.camera.position.z=safe.z;this.camera.position.y+=( (nz<1?2.1:1.9)-this.camera.position.y)*dt*6;if(z<1&&!this.hasEntered)this.onMove?.('queue');
   }
   this.camera.rotation.set(this.pitch,this.yaw,0,'YXZ');
   if(this.companionBalloon){this.companionBalloon.position.x=Math.min(1.05,.68*2.05*Math.tan(this.camera.fov*Math.PI/360)*this.camera.aspect);if(!this.reduced){this.companionBalloon.position.y=.38+Math.sin(t*1.5)*.035;this.companionBalloon.rotation.z=Math.sin(t*.8)*.045;}}

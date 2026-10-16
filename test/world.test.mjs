@@ -29,6 +29,16 @@ test('camera tour arrives at destination and cancellation releases pending navig
  let resolved=false;const cancel=world.go([0,2,20],[0,3,-1]).then(()=>resolved=true);world.cancelMove();await cancel;assert(resolved);assert.equal(world.target,null);
 });
 test('queue lock prevents pointer/walk cancellation until the entry journey finishes',()=>{world.locked=true;world.setKey('w',true);assert.equal(world.keys.size,0);world.locked=false;world.setKey('w',true);assert.equal(world.keys.size,1);world.stop();assert.equal(world.keys.size,0);});
+
+test('joystick walks at 4.2 metres per second, retains analog speed and stops cleanly',()=>{
+ world.started=true;world.hasEntered=true;world.target=null;world.yaw=0;
+ const run=strength=>{world.stop();world.camera.position.set(0,1.9,25);world.setMoveInput(0,strength);let now=world.last;for(let i=0;i<20;i++){now+=50;world.frame(now);}return 25-world.camera.position.z;};
+ assert(Math.abs(run(1)-4.2)<.001);assert(Math.abs(run(.5)-2.1)<.001);
+ world.setMoveInput(1,1);assert(Math.abs(Math.hypot(world.moveInput.right,world.moveInput.forward)-1)<1e-10);
+ world.stop();const position=world.camera.position.clone();world.frame(world.last+50);assert(world.camera.position.equals(position));
+ world.locked=true;world.setMoveInput(0,1);assert.deepEqual(world.moveInput,{right:0,forward:0});world.locked=false;
+ world.suspended=true;world.setMoveInput(1,0);assert.deepEqual(world.moveInput,{right:0,forward:0});world.suspended=false;world.started=false;
+});
 test('bundled audio and altar image have real media file signatures',async()=>{const audio=await fs.readFile('dist/assets/dhak.ogg');assert.equal(audio.subarray(0,4).toString(),'OggS');const png=await fs.readFile('dist/assets/idol.png');assert.equal(png.subarray(1,4).toString(),'PNG');assert(audio.length>400000);assert(png.length>1000000);});
 test('six distinct physical stalls include all the requested Kolkata market corners',()=>{const kinds=world.stalls.map(s=>s.userData.kind);assert.equal(kinds.length,6);for(const kind of ['tea','game','fuchka','jhalmuri','mishti','flowers'])assert(kinds.includes(kind));});
 test('the overhead jharbati stays above Maa’s face and the central sight line',async()=>{const THREE=await import('../dist/assets/three.module.js');const box=new THREE.Box3().setFromObject(world.chandelier);assert(box.min.y>7.3);assert.equal(world.chandelier.name,'overhead-jharbati');for(const z of [20,2,-7,-16]){const origin=new THREE.Vector3(0,2,z),face=new THREE.Vector3(0,6.45,-21.25),ray=new THREE.Ray(origin,face.clone().sub(origin).normalize());assert.equal(ray.intersectBox(box,new THREE.Vector3()),null);}});

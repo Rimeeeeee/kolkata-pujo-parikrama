@@ -7,10 +7,11 @@ import {drawPostcard} from './postcard.js';
 import {withinReach} from './interaction.js';
 import {queueSnapshot} from './movement.js';
 import {PHOTO_SPOT,drawPortraitCard} from './photo-booth.js';
+import {mobileLayout,installJoystick} from './touch-controls.js';
 
 const $=id=>document.getElementById(id);
 const state={started:false,entered:false,queuing:false,sound:false,moments:new Set(),round:newRangeRound(),currentCharacter:null,place:'street',inputPaused:false,balloon:null,purchases:[],shop:null,watchingFireworks:false};
-let world=null,range=null,toastTimer=0,lastQueueNotice=0,voiceAudio=null,postcardSnapshot=null,portraitSnapshot=null;
+let world=null,range=null,joystick=null,toastTimer=0,lastQueueNotice=0,voiceAudio=null,postcardSnapshot=null,portraitSnapshot=null;
 const portraitOptions={outfit:'sari',pose:'namaskar'};
 let selectedBalloon=balloonChoice(BALLOON_COLOURS[0].hex,BALLOON_COLOURS[0].name);
 function toast(message){clearTimeout(toastTimer);$('toast').textContent=message;$('toast').classList.add('show');toastTimer=setTimeout(()=>$('toast').classList.remove('show'),4300);}
@@ -39,10 +40,17 @@ function begin({audio=true}={}){
  updateTouchControls();
  if(world?.renderer){world.started=true;world.go(PLACES[0].position,PLACES[0].look);}if(audio)sound(true);updateJourney();
 }
-function pauseInput(){state.inputPaused=true;world?.stop();world?.cancelMove();}
-function updateTouchControls(){$('touch-controls').classList.toggle('hidden',!state.started||!(matchMedia('(pointer: coarse)').matches||innerWidth<=900));}
+function stopWalking(){joystick?.reset();world?.stop();}
+function pauseInput(){state.inputPaused=true;stopWalking();world?.cancelMove();}
+function updateTouchControls(){
+ const layout=mobileLayout(innerWidth,innerHeight,matchMedia('(pointer: coarse)').matches),gate=$('landscape-modal');
+ document.body.classList.toggle('touch-layout',layout.touch);joystick?.reset();
+ if(layout.rotate&&!gate.open){stopWalking();state.inputPaused=true;if(world)world.suspended=true;gate.showModal();}
+ else if(!layout.rotate&&gate.open)gate.close();
+ $('touch-controls').classList.toggle('hidden',!state.started||!layout.touch||layout.rotate);
+}
 addEventListener('resize',updateTouchControls);
-function resumeInput(){state.inputPaused=state.queuing||!!document.querySelector('dialog[open]')||!$('dialogue').classList.contains('hidden');if(world)world.suspended=!!document.querySelector('dialog[open]');}
+function resumeInput(){state.inputPaused=state.queuing||!!document.querySelector('dialog[open]')||!$('dialogue').classList.contains('hidden');if(state.inputPaused)stopWalking();$('move-joystick').setAttribute('aria-disabled',String(state.inputPaused));if(world)world.suspended=!!document.querySelector('dialog[open]');}
 function openModal(id){closeDialogue();pauseInput();if(world)world.suspended=true;const dialog=$(id);if(!dialog.open)dialog.showModal();}
 function closeDialogue(){if(world)world.conversationId=null;$('dialogue').classList.add('hidden');stopVoice();resumeInput();}
 async function speakCharacter(id,{explicit=false}={}){
@@ -141,9 +149,10 @@ addEventListener('keydown',e=>{
  if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(key)){e.preventDefault();if(state.started&&!state.queuing)world?.setKey(key,true);}
  if(key==='e'&&state.started){const visible=markerButtons.filter(m=>m.button.style.display!=='none').sort((a,b)=>Number(a.button.dataset.distance)-Number(b.button.dataset.distance));if(!$('camera-marker').hidden)openPhotoBooth({walk:false});else if(visible[0])talk(visible[0].id);}
 });
-addEventListener('keyup',e=>world?.setKey(e.key.toLowerCase(),false));addEventListener('blur',()=>world?.stop());
-for(const button of document.querySelectorAll('[data-walk]')){const release=()=>world?.setKey(button.dataset.walk,false);button.onpointerdown=e=>{e.preventDefault();if(!state.inputPaused&&!state.queuing){world?.setKey(button.dataset.walk,true);button.setPointerCapture(e.pointerId);}};button.onpointerup=release;button.onpointercancel=release;button.onlostpointercapture=release;}
-document.addEventListener('visibilitychange',()=>{world?.stop();if(document.hidden){$('dhak-audio').pause();stopVoice();}else if(state.sound)$('dhak-audio').play().catch(()=>sound(false));});
+addEventListener('keyup',e=>world?.setKey(e.key.toLowerCase(),false));addEventListener('blur',stopWalking);
+joystick=installJoystick($('move-joystick'),{onMove:(right,forward)=>world?.setMoveInput(right,forward),canMove:()=>state.started&&!state.inputPaused&&!state.queuing&&!world?.locked&&!world?.suspended});
+$('landscape-modal').addEventListener('cancel',event=>event.preventDefault());
+document.addEventListener('visibilitychange',()=>{stopWalking();if(document.hidden){$('dhak-audio').pause();stopVoice();}else if(state.sound)$('dhak-audio').play().catch(()=>sound(false));});
 function placeMarker(button,p){const half=(button.offsetWidth||0)/2;button.style.left=`${Math.max(half+12,Math.min(innerWidth-half-12,p.x))}px`;button.style.top=`${p.y}px`;}
 function onFrame(position){
  if(!world?.renderer||!state.started)return;const occupied=[];
@@ -154,6 +163,6 @@ function onFrame(position){
  if(!world.target&&!state.queuing)$('location').textContent=position.z<0?'Inside the pandal':position.x<-6?'The cha & street food lane':position.x>6?'The fairground & mishti corner':'The neighbourhood lane';
 }
 try{world=new PujoWorld($('world'),{onFrame,onMove:()=>{if(performance.now()-lastQueueNotice>7000){lastQueueNotice=performance.now();toast('Join the queue at the entrance to step inside the pandal.');}},onReady:ready,onFail:fail});}catch(error){fail(error);}
-addEventListener('pageshow',()=>world?.stop());updateJourney();selectBalloon(selectedBalloon.hex,selectedBalloon.name);
+addEventListener('pageshow',stopWalking);updateTouchControls();updateJourney();selectBalloon(selectedBalloon.hex,selectedBalloon.name);
 
 try{const saved=JSON.parse(sessionStorage.getItem('pujo-balloon'));if(saved){const choice=balloonChoice(saved.hex,saved.name);if(choice){state.balloon=choice;showCompanion();}}}catch{}

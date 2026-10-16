@@ -33,3 +33,22 @@ body:has(.dialogue:not(.hidden)) .journey{visibility:hidden}
 }
 @media(max-width:360px){.brand{font-size:18px}.brand small{display:none}.brand-mark{width:30px;height:30px}.top-actions .round-button{width:42px}.portrait-controls{grid-template-columns:1fr}.portrait-controls label:last-child{grid-column:auto}.welcome h1{font-size:48px}.welcome{left:20px;right:20px;bottom:100px}.colour-swatch{width:32px}}
 @media(max-height:500px){.welcome{top:90px;bottom:78px;max-width:calc(100vw - 40px);overflow:auto}.welcome h1{font-size:38px;margin:10px 0}.welcome p,.welcome-note,.welcome .eyebrow{display:none}.welcome .primary{margin:4px 0 10px}.journey,.location-tag{display:none}.touch-controls{bottom:75px}.topbar{top:10px}.bottom-bar{bottom:10px}.modal{max-height:calc(100dvh - 16px)}.dialogue{bottom:72px;max-height:calc(100dvh - 140px)}}
+
+/* Landscape phone play: left thumb walks, the rest of the scene remains free to look. */
+.touch-controls{left:max(24px,env(safe-area-inset-left));right:auto;bottom:calc(82px + env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;gap:9px;z-index:6;user-select:none}
+.touch-controls .joystick{position:relative;display:block;width:112px;height:112px;padding:0;border:1px solid #e6c58b88;border-radius:50%;background:radial-gradient(circle,#d8b97818 0 45%,#241e29a8 46%);box-shadow:inset 0 0 0 10px #edcf9810,0 5px 25px #0003;backdrop-filter:blur(8px);touch-action:none;cursor:grab}
+.joystick.active{border-color:#f1d6a1;cursor:grabbing}.joystick:focus-visible{outline:2px solid var(--gold);outline-offset:5px}
+.joystick-directions{position:absolute;inset:0;display:grid;place-items:center;font-size:88px;color:#e6c58b55;pointer-events:none}
+.joystick-stick{position:absolute;left:50%;top:50%;width:46px;height:46px;border:1px solid #ffedc7;border-radius:50%;background:radial-gradient(circle at 35% 25%,#f0dab0,#b78b53);box-shadow:0 3px 13px #0006;transform:translate(calc(-50% + var(--stick-x,0px)),calc(-50% + var(--stick-y,0px)));pointer-events:none}
+#joystick-hint{font-size:8px;letter-spacing:1.2px;color:#f2ddb4;text-shadow:0 2px 4px #000}
+.joystick[aria-disabled=true]{opacity:.4}body:has(dialog[open]) .touch-controls,body:has(.dialogue:not(.hidden)) .touch-controls{visibility:hidden}
+.touch-layout .walk-hint{display:none}.touch-layout .topbar{left:max(20px,env(safe-area-inset-left));right:max(20px,env(safe-area-inset-right));top:calc(12px + env(safe-area-inset-top))}
+.touch-layout .bottom-bar{left:max(24px,env(safe-area-inset-left));right:max(24px,env(safe-area-inset-right));bottom:calc(12px + env(safe-area-inset-bottom))}
+.touch-layout .top-actions .round-button{width:44px;height:44px;padding:0;justify-content:center}.touch-layout .top-actions .round-button span{display:none}.touch-layout .scene-caption{display:none}
+.touch-layout .bottom-bar button{min-height:44px}.touch-layout .explore-button .key{display:none}
+.landscape-modal{position:fixed;inset:0;margin:0;padding:max(28px,env(safe-area-inset-top)) 28px;width:100vw;max-width:none;height:100dvh;max-height:none;border:0;background:radial-gradient(ellipse at 50% 38%,#46312d,#201d27 75%);color:var(--cream);text-align:center;overflow:auto}
+.landscape-modal[open]{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px}.landscape-modal::backdrop{background:#201d27}
+.landscape-modal h2{font-size:clamp(32px,8vw,48px);line-height:1.05;max-width:360px}.landscape-modal p{font-size:14px;line-height:1.8;max-width:300px;color:#d2c4ad}.landscape-modal .eyebrow{font-size:9px}
+.rotate-phone{display:grid;place-items:center;width:65px;height:105px;border:2px solid #dfba78;border-radius:13px;font-size:48px;color:#dfba78;transform:rotate(-25deg);margin-bottom:18px}
+@media(orientation:landscape) and (max-height:600px){.touch-layout .journey,.touch-layout .location-tag{display:none}.touch-layout .welcome{left:24px;top:80px;bottom:78px;max-width:420px;overflow:auto}.touch-layout .welcome h1{font-size:46px;margin:10px 0}.touch-layout .welcome p,.touch-layout .welcome-note,.touch-layout .welcome .eyebrow{display:none}.touch-layout .dialogue{bottom:70px;max-height:calc(100dvh - 145px);padding:18px 22px}.touch-layout .dialogue h2{font-size:26px;margin:5px 0 10px}.touch-layout .dialogue [lang=bn]{font-size:17px}.touch-layout .dialogue-actions{margin-top:0}.touch-layout .modal{max-height:calc(100dvh - 16px)}.touch-layout .modal .close{width:44px;height:44px}}
+@media(max-height:350px){.touch-controls .joystick{width:96px;height:96px}.touch-controls{bottom:72px;gap:5px}}
