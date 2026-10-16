@@ -62,9 +62,9 @@ export function moveAmongPeople(from,target,obstacles,radius=PLAYER_RADIUS){
   p=next;
  }return p;
 }
-export function crowdPath(start,goal,obstacles,walkable=()=>true){
- const segment=(a,b)=>{const steps=Math.ceil(Math.hypot(b.x-a.x,b.z-a.z)/.25);for(let i=0;i<=steps;i++){const k=i/(steps||1);if(!walkable({x:a.x+(b.x-a.x)*k,z:a.z+(b.z-a.z)*k}))return false;}return clearSegment(a,b,obstacles);};
- const clear=p=>walkable(p)&&clearSegment(p,p,obstacles,PLAYER_RADIUS+.065);
+export function crowdPath(start,goal,obstacles,walkable=()=>true,radius=PLAYER_RADIUS){
+ const segment=(a,b)=>{const steps=Math.ceil(Math.hypot(b.x-a.x,b.z-a.z)/.25);for(let i=0;i<=steps;i++){const k=i/(steps||1);if(!walkable({x:a.x+(b.x-a.x)*k,z:a.z+(b.z-a.z)*k}))return false;}return clearSegment(a,b,obstacles,radius);};
+ const clear=p=>walkable(p)&&clearSegment(p,p,obstacles,radius+.065);
  let end={...goal};if(!clear(end)){for(let radius=.45;radius<=1.8;radius+=.25){let found=false;for(let j=0;j<20;j++){const a=j*Math.PI/10,p={x:goal.x+Math.cos(a)*radius,z:goal.z+Math.sin(a)*radius};if(clear(p)){end=p;found=true;break;}}if(found)break;}}
  if(segment(start,end)&&walkable(end))return [end];
  const size=.65,key=(x,z)=>x+','+z,toCell=p=>({x:Math.round(p.x/size),z:Math.round(p.z/size)}),s=toCell(start);let g=toCell(end);const candidates=[];for(let x=-2;x<=2;x++)for(let z=-2;z<=2;z++){const c={x:g.x+x,z:g.z+z},p={x:c.x*size,z:c.z*size};if(clear(p)&&segment(p,end))candidates.push({...c,d:Math.hypot(p.x-end.x,p.z-end.z)});}if(!candidates.length)return [];candidates.sort((a,b)=>a.d-b.d);g=candidates[0];const open=[{...s,cost:0,f:0}],costs=new Map([[key(s.x,s.z),0]]),parents=new Map();let last=null;

@@ -43,6 +43,11 @@ export function installPeopleLife(w){
   const p=w.vendorPeople.get(id)||candidates.reduce((a,b)=>Math.hypot(b.g.position.x-c.position[0],b.g.position.z-c.position[2])<Math.hypot(a.g.position.x-c.position[0],a.g.position.z-c.position[2])?b:a);
   p.characterId=id;w.characters.set(id,p);
  }
+ // Resolve initial crowd spacing before caching homes or showing the scene.
+ // Named people and performers keep their calibrated interaction positions.
+ for(let pass=0;pass<5;pass++)for(const p of w.people.filter(p=>p.batched&&!p.characterId)){
+  const safe=moveAmongPeople(p.g.position,p.g.position,w.obstacles(p),p.radius);p.g.position.x=safe.x;p.g.position.z=safe.z;
+ }
  for(const p of w.people){
   p.home=p.g.position.clone();p.restYaw=p.g.rotation.y;p.restArms=p.arms.map(a=>a.rotation.clone());
   // The shared human model supplies an articulated head and planted leg pivots.

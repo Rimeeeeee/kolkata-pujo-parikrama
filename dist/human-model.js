@@ -5,6 +5,15 @@ const SKINS=['#a77b57','#b88a65','#895d43','#c69873'];
 const HAIR=['#292526','#40332c','#56504a','#b0a99b'];
 // One shared silhouette per garment; cloth detail never creates a geometry per visitor.
 function garment(w,key,points){return w.geometries[key]??=new THREE.LatheGeometry(points.map(p=>new THREE.Vector2(...p)),16);}
+function bareToes(w){
+ if(w.geometries.bareToes)return w.geometries.bareToes;
+ const vertices=[],indices=[];
+ for(let i=0;i<5;i++){
+  const g=w.geometries.sphere.clone();g.scale(.012-i*.001,.014,.023-i*.002);g.translate(-.043+i*.021,-.324,.15+(i===0?.004:0));
+  const offset=vertices.length/3;vertices.push(...g.attributes.position.array);indices.push(...Array.from(g.index.array,j=>j+offset));g.dispose();
+ }
+ const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));g.setIndex(indices);g.computeVertexNormals();return w.geometries.bareToes=g;
+}
 export function addNamaskar(w,body,skin,outfit,z=.34){
  for(const side of [-1,1]){
   const a=[side*.215,1.48,0],sleeve=[side*.257,1.28,.08],elbow=[side*.30,1.09,.15];
@@ -25,13 +34,13 @@ export function makePerson(w,x,z,{outfit='#c18c54',sari=false,pose='idle',scale=
   const border=w.rod([-.27,.82,.29],[-.065,1.58,.18],.018,trim,body);border.name='pallu-border';
   const hem=w.mesh(w.geometries.sariHem??=new THREE.TorusGeometry(.30,.018,5,32),trim,[0,.235,0],null,body);hem.rotation.x=Math.PI/2;
  }else{
-  w.mesh(garment(w,'kurta-tailored',[[0,.72],[.27,.72],[.27,.80],[.22,1.10],[.205,1.40],[.22,1.52],[.15,1.60],[0,1.60]]),outfit,[0,0,0],[1,1,.78],body);
+  w.mesh(garment(w,'kurta-tailored',[[0,.72],[.27,.72],[.27,.80],[.23,1.10],[.245,1.40],[.255,1.48],[.245,1.54],[.19,1.59],[.085,1.62],[0,1.62]]),outfit,[0,0,0],[1,1,.78],body).name='kurta-body';
   for(const side of [-1,1]){w.ball(dhoti,[side*.115,.53,0],[.13,.32,.16],body);for(let i=0;i<2;i++)w.rod([side*(.06+i*.07),.26,.13],[side*(.04+i*.07),.77,.14],.012,'#bba987',body);}
   w.box(trim,[0,1.34,.178],[.027,.37,.018],body);for(const y of [1.23,1.35,1.47])w.ball('#795d3f',[0,y,.191],[.012,.012,.008],body);
   for(const side of [-1,1])w.rod([side*.035,1.60,.09],[side*.105,1.54,.155],.018,outfit,body);
  }
  // Separate leg pivots keep the soles on the floor during breathing and gestures.
- const legs=[];for(const side of [-1,1]){const leg=new THREE.Group();leg.position.set(side*.115,.37,0);body.add(leg);legs.push(leg);w.cyl(skin,[0,-.18,0],[.055,.29,.06],leg);w.ball('#48362b',[0,-.325,.06],[.082,.035,.15],leg);w.rod([-.06,-.295,.06],[.06,-.295,.06],.014,'#96764c',leg);}
+ const legs=[];for(const side of [-1,1]){const leg=new THREE.Group();leg.position.set(side*.115,.37,0);body.add(leg);legs.push(leg);w.cyl(skin,[0,-.18,0],[.055,.29,.06],leg);w.ball(skin,[0,-.325,.05],[.066,.033,.115],leg).name='bare-foot';w.mesh(bareToes(w),skin,[0,0,0],null,leg).name='bare-toes';}
  w.cyl(skin,[0,1.65,0],[.065,.16,.065],body);
  // The face remains at the ritual's calibrated cheek and palm contact height.
  const head=new THREE.Group();head.position.y=1.68;body.add(head);
@@ -74,7 +83,8 @@ export function makePerson(w,x,z,{outfit='#c18c54',sari=false,pose='idle',scale=
  }
  if(pose==='pray'){arms.forEach(a=>a.visible=false);addNamaskar(w,body,skin,outfit,.30);}
  if(priest){w.box('#b66541',[-.14,1.25,.2],[.11,.75,.04],body);w.rod([-.18,1.55,.22],[.19,.9,.22],.012,'#f1ddac',body);face('#934438',[0,1.95,.151],[.012,.035,.009]);}
- const person={g,body,head,legs,arms,pose,human:true,skin,hair,age,appearance,seed:x*3+z,radius:.30*scale*Math.max(1,build)};
+ const footprint=pose==='photo'?.52:pose==='pray'?.47:pose==='dhak'?.83:pose==='shankha'?.70:pose==='arati'?.75:.38;
+ const person={g,body,head,legs,arms,pose,human:true,skin,hair,age,appearance,seed:x*3+z,radius:footprint*scale*Math.max(1,build)};
  if(phone){
   person.phone=phone;person.photoArms=new RitualArms(person,{elbowPole:[.16,-.85,.12]});
   for(let i=0;i<2;i++){const grip=body.localToWorld(new THREE.Vector3((i?1:-1)*.155,1.54,.43));person.photoArms.pose(i,grip);}

@@ -8,7 +8,7 @@ import {presentPurchase,putAwayPurchase,updatePurchase} from './street-purchases
 import {buildAlponaCorner,applyAlpona,captureAlpona} from './alpona-corner.js';
 import {buildPhotoBooth,capturePortrait} from './photo-booth.js';
 import {constrainWalk} from './game-state.js';
-import {queueSnapshot,moveAmongPeople,crowdPath,WALK_SPEED,JumpMotion} from './movement.js';
+import {queueSnapshot,QUEUE_END,QUEUE_DESTINATIONS,moveAmongPeople,crowdPath,WALK_SPEED,JumpMotion} from './movement.js';
 import {buildStreetDetails,installPeopleLife,greetPerson,characterPosition,poseWalkingLegs,updatePeople,createFireworks,updateFireworks} from './scene-life.js';
 
 export class PujoWorld {
@@ -246,10 +246,36 @@ export class PujoWorld {
  startFireworks(){this.fireworks.elapsed=0;this.fireworks.active=true;this.fireworks.points.visible=true;updateFireworks(this,0);}
  stopFireworks(){this.fireworks.active=false;this.fireworks.points.visible=false;}
  obstacles(ignorePerson){const obstacles=this.people.filter(p=>p!==ignorePerson&&!p.ritualHidden).map(p=>({x:p.g.position.x,z:p.g.position.z,radius:p.radius}));if(this.artBench)obstacles.push({x:-6.3,z:5.5,radius:.72});if(this.photoRig)obstacles.push({x:0,z:14.5,radius:.47});return obstacles.concat(this.staticObstacles||[],this.rituals?.obstacles()||[]);}
- joinQueue(onUpdate=()=>{}){this.stop();this.cancelMove();this.locked=true;return new Promise(resolve=>{this.queueRun={elapsed:0,resolve,onUpdate,released:false};});}
- updateQueue(dt){const run=this.queueRun;if(!run)return;run.elapsed+=dt;const snap=queueSnapshot(run.elapsed);this.queuePeople.forEach((p,i)=>{const q=snap.people[i],stepping=Math.hypot(p.g.position.x-q.x,p.g.position.z-q.z)>.0001;poseWalkingLegs(p,run.elapsed*9+i,stepping&&!this.reduced);p.g.position.set(q.x,q.z<1?.4:0,q.z);p.g.rotation.y=q.yaw;if(!this.reduced){p.arms[0].rotation.x=Math.sin(run.elapsed*9+i)*.15;p.arms[1].rotation.x=-Math.sin(run.elapsed*9+i)*.15;}});
-  if(!run.released){this.camera.position.set(snap.player.x,snap.player.z<1?2.1:1.9,snap.player.z);this.yaw=snap.player.yaw+Math.PI;this.pitch=.04;run.onUpdate(snap);if(snap.done){this.hasEntered=true;this.locked=false;run.released=true;run.resolve();}}
-  if(snap.settled)this.queueRun=null;
+ joinQueue(onUpdate=()=>{}){this.stop();this.cancelMove();this.locked=true;for(const p of this.queuePeople){p.queuePath=null;p.queueStall=0;p.queueArrived=false;}return new Promise(resolve=>{this.queueRun={elapsed:0,resolve,onUpdate,released:false};});}
+ updateQueue(dt){
+  const run=this.queueRun;if(!run)return;run.elapsed+=dt;const snap=queueSnapshot(run.elapsed);
+  this.queuePeople.forEach((p,i)=>{
+   const q=snap.people[i],from=p.g.position,others=this.obstacles(p);others.push({x:this.camera.position.x,z:this.camera.position.z,radius:.36});
+   let goal=q;
+   if(q.distance>QUEUE_END){
+    const [x,z]=QUEUE_DESTINATIONS[i],destination={x,z};
+    if(!p.queueArrived&&(!p.queuePath||p.queueStall>.8)){p.queuePath=crowdPath(from,destination,others,()=>true,p.radius);p.queueGoal=p.queuePath.at(-1)||destination;p.queueStall=0;}
+    goal=p.queuePath[0]||from;
+    if(p.queueArrived)goal=from;
+   }
+   const distance=Math.hypot(goal.x-from.x,goal.z-from.z),step=Math.min(distance,dt*2.5);
+   const safe=moveAmongPeople(from,{x:from.x+(goal.x-from.x)*step/(distance||1),z:from.z+(goal.z-from.z)*step/(distance||1)},others,p.radius);
+   const dx=safe.x-from.x,dz=safe.z-from.z,stepping=Math.hypot(dx,dz)>.0001;
+   if(stepping)p.g.rotation.y=Math.atan2(dx,dz);from.set(safe.x,safe.z<1?.4:0,safe.z);
+   if(q.distance>QUEUE_END){
+    p.queueStall=stepping||p.queueArrived?0:p.queueStall+dt;
+    if(p.queuePath.length&&Math.hypot(from.x-goal.x,from.z-goal.z)<.06)p.queuePath.shift();
+    p.queueArrived=Math.hypot(from.x-p.queueGoal.x,from.z-p.queueGoal.z)<.10;
+    if(p.queueArrived)p.g.rotation.y=Math.PI;
+   }
+   poseWalkingLegs(p,run.elapsed*9+i,stepping&&!this.reduced);
+   if(!this.reduced){p.arms[0].rotation.x=stepping?Math.sin(run.elapsed*9+i)*.15:0;p.arms[1].rotation.x=stepping?-Math.sin(run.elapsed*9+i)*.15:0;}
+  });
+  if(!run.released){
+   const safe=moveAmongPeople(this.camera.position,snap.player,this.obstacles());this.camera.position.set(safe.x,safe.z<1?2.1:1.9,safe.z);this.yaw=snap.player.yaw+Math.PI;this.pitch=.04;run.onUpdate(snap);
+   if(snap.done&&Math.hypot(safe.x-snap.player.x,safe.z-snap.player.z)<.10){this.hasEntered=true;this.locked=false;run.released=true;run.resolve();}
+  }
+  if(snap.settled&&this.queuePeople.every(p=>p.queueArrived))this.queueRun=null;
  }
  go(position,look,{immediate=false}={}){this.cancelMove();this.cancelJump();const p=new THREE.Vector3(...position),goal=p.clone(),l=new THREE.Vector3(...look),v=l.clone().sub(p).normalize(),yaw=Math.atan2(-v.x,-v.z),pitch=Math.asin(v.y);const walkable=({x,z})=>{const [a,b]=constrainWalk(x,z,this.hasEntered);return Math.abs(a-x)<.02&&Math.abs(b-z)<.02;};const waypoints=crowdPath(this.camera.position,p,this.obstacles(),walkable);if(!waypoints.length)return Promise.resolve();const end=waypoints.at(-1);p.x=end.x;p.z=end.z;if(immediate){this.camera.position.copy(p);this.yaw=yaw;this.pitch=pitch;return Promise.resolve();}return new Promise(resolve=>{this.target={p,goal,yaw,pitch,resolve,waypoints,walkable,index:0,bestDistance:Infinity,stalledFor:0,replans:0};});}
  updateGuidedMove(dt){

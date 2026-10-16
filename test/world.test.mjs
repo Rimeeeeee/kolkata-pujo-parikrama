@@ -18,6 +18,31 @@ const source=(await fs.readFile(new URL('../dist/world.js',import.meta.url),'utf
  const {PujoWorld}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 let world,puja,chantCount=0;
 
+test('every shared visitor rig is barefoot, with skin-coloured feet and toes',()=>{
+ const w=new PujoWorld({addEventListener(){},setPointerCapture(){}},{onReady(){}}),rituals=new PujaRituals(w);
+ const portrait=w.person(0,20,{pose:'portrait'});
+ for(const p of [...w.people,...rituals.actors,portrait])for(const leg of p.legs){
+  const foot=leg.getObjectByName('bare-foot'),toes=leg.getObjectByName('bare-toes');assert(foot&&toes);assert.equal(foot.material.color.getHexString(),new THREE.Color(p.skin).getHexString());assert.equal(toes.material,foot.material);assert.equal(leg.children.length,3);
+ }
+});
+
+test('kurta shoulders have continuous cloth coverage across scales and arm poses',()=>{
+ const w=new PujoWorld({addEventListener(){},setPointerCapture(){}},{onReady(){}});
+ for(const p of w.people.filter(p=>p!==w.priest&&p.body.getObjectByName('kurta-body'))){
+  const shirt=p.body.getObjectByName('kurta-body');assert.equal(shirt.material,p.arms[0].children[0].material);
+  const cover=new THREE.Box3().setFromObject(shirt);for(const arm of p.arms)assert(cover.intersectsBox(new THREE.Box3().setFromObject(arm.children[0])));
+ }
+});
+
+test('initial crowd and queue dispersal keep body and held-phone footprints separate',async()=>{
+ const w=new PujoWorld({addEventListener(){},setPointerCapture(){}},{onReady(){}});w.started=true;w.camera.position.set(4.7,1.9,15.65);
+ const check=p=>{for(const other of w.people){if(other===p||other.ritualHidden)continue;const gap=Math.hypot(p.g.position.x-other.g.position.x,p.g.position.z-other.g.position.z)-p.radius-other.radius;assert(gap>-.003,`Crowd overlap ${p.characterId||p.queueId||p.pose} / ${other.characterId||other.queueId||other.pose}: ${gap}`);}};
+ w.people.filter(p=>p.batched).forEach(check);
+ let entered=false;const pending=w.joinQueue().then(()=>entered=true);
+ for(let frame=0;frame<1400&&w.queueRun;frame++){w.frame(w.last+50);w.queuePeople.forEach(check);}
+ assert(w.hasEntered);await pending;assert(entered);assert.equal(w.queueRun,null);assert(w.queuePeople.every(p=>p.queueArrived));
+});
+
 test('photo visitors hold their phone with bent elbows and put it away during a greeting',()=>{
  const w=new PujoWorld({addEventListener(){},setPointerCapture(){}},{onReady(){}}),photos=w.people.filter(p=>p.pose==='photo');
  const checkGrip=p=>{for(const arm of p.photoArms.arms){
