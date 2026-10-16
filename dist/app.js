@@ -1,3 +1,4 @@
+import {CAT_SPOT,canPetCat,CatSound} from './bench-cat.js';
 import {PujoWorld} from './world.js';
 import {PLACES} from './game-state.js';
 import {CHARACTERS,STALL_MENUS} from './neighbourhood.js';
@@ -15,6 +16,7 @@ import {drawAlbumCollage} from './album-collage.js';
 import {ART_SPOT,addMotif,drawDesign} from './alpona-corner.js';
 
 const $=id=>document.getElementById(id);
+const catSound=new CatSound();
 const state={started:false,entered:false,queuing:false,sound:false,moments:new Set(),round:newRangeRound(),currentCharacter:null,place:'street',inputPaused:false,balloon:null,purchases:[],shop:null,watchingFireworks:false,pujaMode:'saptami'};
 let world=null,range=null,joystick=null,rituals=null,lastRitualUI='',toastTimer=0,lastQueueNotice=0,voiceAudio=null,postcardSnapshot=null,portraitSnapshot=null;
 const portraitOptions={outfit:'sari',pose:'namaskar'};
@@ -44,7 +46,7 @@ function stopChorus(){$('ritual-chorus').pause();$('ritual-chorus').currentTime=
 function chant(){if(!state.sound)return;stopVoice();const audio=$('ritual-chorus');audio.currentTime=0;audio.volume=.8;$('dhak-audio').volume=.16;audio.onended=()=>{$('dhak-audio').volume=.48;};audio.play().catch(()=>{$('dhak-audio').volume=.48;});}
 async function sound(on){
  state.sound=on;const audio=$('dhak-audio');audio.volume=.48;
- if(on){try{await audio.play();}catch{state.sound=false;toast('Tap Sound again to start the dhak.');}}else{audio.pause();stopVoice();stopChorus();}
+ if(on){try{await audio.play();}catch{state.sound=false;toast('Tap Sound again to start the dhak.');}}else{audio.pause();stopVoice();stopChorus();catSound.stop();}
  $('sound').setAttribute('aria-label',state.sound?'Mute dhak sound':'Turn on dhak sound');$('sound').querySelector('span').textContent=state.sound?'Dhak on':'Sound off';$('sound').style.borderColor=state.sound?'#c9a36d':'';
 }
 function begin({audio=true}={}){
@@ -223,6 +225,7 @@ $('album-modal').addEventListener('close',()=>{$('album-grid').replaceChildren()
 document.querySelectorAll('[data-close]').forEach(button=>button.onclick=()=>button.closest('dialog').close());
 document.querySelectorAll('dialog').forEach(dialog=>{dialog.addEventListener('close',()=>{if(dialog.id==='game-modal')range?.stop();resumeInput();});dialog.addEventListener('click',event=>{if(event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)dialog.close();}});});
 $('close-dialogue').onclick=closeDialogue;$('translate').onclick=()=>{const hidden=$('dialogue-en').classList.toggle('hidden');$('translate').textContent=hidden?'Translate to English ↗':'Hide English translation ↑';};$('listen').onclick=()=>speakCharacter(state.currentCharacter?.id,{explicit:true});
+$('cat-marker').onclick=petBenchCat;
 $('put-away').onclick=()=>{world?.putAwayPurchase();$('put-away').hidden=true;};
 $('art-marker').onclick=()=>openArt({walk:false});
 $('art-add').onclick=()=>{const [x,y]=({centre:[.5,.5],top:[.5,.18],bottom:[.5,.82],left:[.18,.5],right:[.82,.5]})[$('art-position').value||'centre'];stampArt(x,y);};
@@ -243,13 +246,13 @@ addEventListener('keydown',e=>{
  if(e.target.matches('input,textarea,select'))return;const key=e.key.toLowerCase();if(key==='escape'){closeDialogue();return;}if(document.querySelector('dialog[open]'))return;if(key==='m'&&!state.queuing){e.preventDefault();openModal('places-modal');return;}if(state.inputPaused)return;
  if(key===' '&&state.started&&!state.queuing&&!e.target.closest?.('button,a,[role="button"],[contenteditable]:not([contenteditable="false"])')){e.preventDefault();if(!e.repeat)requestJump();return;}
  if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(key)){e.preventDefault();if(state.started&&!state.queuing)world?.setKey(key,true);}
- if(key==='e'&&state.started){const visible=markerButtons.filter(m=>m.button.style.display!=='none').sort((a,b)=>Number(a.button.dataset.distance)-Number(b.button.dataset.distance));if(!$('art-marker').hidden)openArt({walk:false});else if(!$('camera-marker').hidden)openPhotoBooth({walk:false});else if(visible[0])talk(visible[0].id);}
+ if(key==='e'&&state.started){const visible=markerButtons.filter(m=>m.button.style.display!=='none').sort((a,b)=>Number(a.button.dataset.distance)-Number(b.button.dataset.distance));if(!$('cat-marker').hidden)petBenchCat();else if(!$('art-marker').hidden)openArt({walk:false});else if(!$('camera-marker').hidden)openPhotoBooth({walk:false});else if(visible[0])talk(visible[0].id);}
 });
 addEventListener('keyup',e=>world?.setKey(e.key.toLowerCase(),false));addEventListener('blur',stopWalking);
 joystick=installJoystick($('move-joystick'),{onMove:(right,forward)=>world?.setMoveInput(right,forward),canMove:()=>state.started&&!state.inputPaused&&!state.queuing&&!world?.locked&&!world?.suspended});
 $('jump-button').onclick=requestJump;
 $('landscape-modal').addEventListener('cancel',event=>event.preventDefault());
-document.addEventListener('visibilitychange',()=>{stopWalking();if(document.hidden){$('dhak-audio').pause();stopVoice();stopChorus();}else if(state.sound)$('dhak-audio').play().catch(()=>sound(false));});
+document.addEventListener('visibilitychange',()=>{stopWalking();if(document.hidden){$('dhak-audio').pause();stopVoice();stopChorus();catSound.stop();}else if(state.sound)$('dhak-audio').play().catch(()=>sound(false));});
 function placeMarker(button,p){const half=(button.offsetWidth||0)/2,height=button.offsetHeight||44,header=document.querySelector('.topbar')?.getBoundingClientRect(),footer=document.querySelector('.bottom-bar')?.getBoundingClientRect(),top=(header?.bottom||0)+8+height,bottom=(footer?.top??innerHeight)-8;button.style.left=`${Math.max(half+12,Math.min(innerWidth-half-12,p.x))}px`;button.style.top=`${Math.max(top,Math.min(bottom,p.y))}px`;}
 function updateNameTags(position,occupied){
  const header=document.querySelector('.topbar')?.getBoundingClientRect(),footer=document.querySelector('.bottom-bar')?.getBoundingClientRect();
@@ -265,8 +268,22 @@ function updateNameTags(position,occupied){
   tag.element.style.display='block';placeMarker(tag.element,point);occupied.push(point);
  }
 }
+function catOptions(){return {started:state.started,inputPaused:state.inputPaused,queuing:state.queuing,renderCamera:!!world?.renderCamera,travelling:!!world?.target||!!world?.jumpMotion?.active};}
+function petBenchCat(){if(!world?.benchCat||!world.benchCat.pet(world.camera.position,catOptions(),performance.now()/1000))return;if(state.sound)catSound.meow();toast('You gently pet the para cat. It closes its eyes.');}
+let catFrameTime=0;
+function updateBenchCat(position,occupied){
+ const button=$('cat-marker');if(!world.benchCat){button.hidden=true;return;}
+ const now=performance.now()/1000,options=catOptions(),enabled=options.started&&!options.inputPaused&&!options.queuing&&!options.renderCamera&&!options.travelling&&!document.hidden;
+ const meow=world.benchCat.update(position,Math.max(0,Math.min(.05,now-catFrameTime)),now,{enabled});catFrameTime=now;
+ if(meow&&state.sound)catSound.meow();
+ const point=world.project([CAT_SPOT.x,CAT_SPOT.y+.85,CAT_SPOT.z]);
+ button.hidden=!(point.visible&&canPetCat(position,options));button.disabled=world.benchCat.petLeft>0;
+ if(!button.hidden){placeMarker(button,point);occupied.push(point);}
+ if(!enabled)catSound.stop();
+}
 function onFrame(position){
  if(!world?.renderer||!state.started)return;updateJumpControl();const occupied=[],ritualPoint=updateRitualUI();if(ritualPoint)occupied.push(ritualPoint);
+ updateBenchCat(position,occupied);
  const artMarker=$('art-marker'),artPoint=world.project([ART_SPOT.x,1.1,ART_SPOT.z]);artMarker.hidden=!(artPoint.visible&&nearArt()&&!state.inputPaused&&!world.renderCamera);if(!artMarker.hidden){placeMarker(artMarker,artPoint);occupied.push(artPoint);}
  $('put-away').hidden=!world.purchase||world.purchase.prop?.visible===false||!!world.ritualLocked||!!world.renderCamera;
  const cameraMarker=$('camera-marker'),cameraPoint=world.project([PHOTO_SPOT.camera[0],2.45,PHOTO_SPOT.camera[2]]);cameraMarker.hidden=!(cameraPoint.visible&&nearPhotoBooth()&&!state.inputPaused&&!world.renderCamera);if(!cameraMarker.hidden){placeMarker(cameraMarker,cameraPoint);occupied.push(cameraPoint);}

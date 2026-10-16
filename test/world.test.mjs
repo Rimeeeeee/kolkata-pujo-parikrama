@@ -18,6 +18,17 @@ const source=(await fs.readFile(new URL('../dist/world.js',import.meta.url),'utf
  const {PujoWorld}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 let world,puja,chantCount=0;
 
+test('bench cat clears the existing neighbours and leaves a nearby petting position reachable',async()=>{
+ const {CAT_SPOT,canPetCat}=await import('../dist/bench-cat.js');
+ const w=new PujoWorld({addEventListener(){},setPointerCapture(){}},{onReady(){}});
+ assert(w.benchCat);assert.equal(w.people.length,74);
+ for(const p of w.people)assert(Math.hypot(p.g.position.x-CAT_SPOT.x,p.g.position.z-CAT_SPOT.z)>p.radius+.29,`Cat must clear ${p.characterId||p.pose}`);
+ const spot={x:CAT_SPOT.x+.95,z:CAT_SPOT.z+.25};assert(clearSegment(spot,spot,w.obstacles()));assert(canPetCat(spot,{started:true}));
+ const pending=w.go([spot.x,1.9,spot.z],[CAT_SPOT.x,1,CAT_SPOT.z]);
+ for(let i=0;i<800&&w.target;i++)w.frame(w.last+50);
+ await pending;assert(!w.target);assert(canPetCat(w.camera.position,{started:true}));
+});
+
 test('every shared visitor rig is barefoot, with skin-coloured feet and toes',()=>{
  const w=new PujoWorld({addEventListener(){},setPointerCapture(){}},{onReady(){}}),rituals=new PujaRituals(w);
  const portrait=w.person(0,20,{pose:'portrait'});

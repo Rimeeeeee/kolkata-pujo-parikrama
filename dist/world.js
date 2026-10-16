@@ -1,3 +1,4 @@
+import {BenchCat,CAT_SPOT} from './bench-cat.js';
 import * as THREE from './assets/three.module.js';
 import {buildRequestedAdditions} from './pujo-additions.js';
 import {alponaMaterials} from './alpona.js';
@@ -21,7 +22,7 @@ export class PujoWorld {
   this.materials=new Map();this.geometries={box:new THREE.BoxGeometry(1,1,1),sphere:new THREE.SphereGeometry(1,12,8),cylinder:new THREE.CylinderGeometry(1,1,1,12),cone:new THREE.ConeGeometry(1,1,12)};
   this.scene.add(new THREE.HemisphereLight('#dad0e8','#59402c',2.2));const moon=new THREE.DirectionalLight('#fff1d4',2.5);moon.position.set(-8,16,13);this.scene.add(moon);
   this.point('#ffb15b',100,25,0,6,-8);this.point('#ffc86d',65,24,0,7,3);this.point('#ffb35c',55,14,-10,3.5,10);this.point('#ffce8b',40,12,10,3,12);
-  this.buildStreet();buildStreetDetails(this);this.batchStreet();this.buildPandal();this.buildStalls();this.buildPeople();buildRequestedAdditions(this);this.buildAtmosphere();installPeopleLife(this);buildPhotoBooth(this);buildAlponaCorner(this);createFireworks(this);this.bind();this.last=performance.now();this.frame(performance.now());
+  this.buildStreet();buildStreetDetails(this);this.batchStreet();this.buildPandal();this.buildStalls();this.buildPeople();buildRequestedAdditions(this);this.buildAtmosphere();installPeopleLife(this);buildPhotoBooth(this);buildAlponaCorner(this);this.benchCat=new BenchCat(this);createFireworks(this);this.bind();this.last=performance.now();this.frame(performance.now());
   document.fonts?.ready.then(()=>{for(const refresh of this.textRefresh||[])refresh();});
   this.onReady();
  }
@@ -245,7 +246,7 @@ export class PujoWorld {
  greet(id){greetPerson(this,id);}
  startFireworks(){this.fireworks.elapsed=0;this.fireworks.active=true;this.fireworks.points.visible=true;updateFireworks(this,0);}
  stopFireworks(){this.fireworks.active=false;this.fireworks.points.visible=false;}
- obstacles(ignorePerson){const obstacles=this.people.filter(p=>p!==ignorePerson&&!p.ritualHidden).map(p=>({x:p.g.position.x,z:p.g.position.z,radius:p.radius}));if(this.artBench)obstacles.push({x:-6.3,z:5.5,radius:.72});if(this.photoRig)obstacles.push({x:0,z:14.5,radius:.47});return obstacles.concat(this.staticObstacles||[],this.rituals?.obstacles()||[]);}
+ obstacles(ignorePerson){const obstacles=this.people.filter(p=>p!==ignorePerson&&!p.ritualHidden).map(p=>({x:p.g.position.x,z:p.g.position.z,radius:p.radius}));if(this.artBench)obstacles.push({x:-6.3,z:5.5,radius:.72});if(this.photoRig)obstacles.push({x:0,z:14.5,radius:.47});if(this.benchCat)obstacles.push({x:CAT_SPOT.x,z:CAT_SPOT.z,radius:.29});return obstacles.concat(this.staticObstacles||[],this.rituals?.obstacles()||[]);}
  joinQueue(onUpdate=()=>{}){this.stop();this.cancelMove();this.locked=true;for(const p of this.queuePeople){p.queuePath=null;p.queueStall=0;p.queueArrived=false;}return new Promise(resolve=>{this.queueRun={elapsed:0,resolve,onUpdate,released:false};});}
  updateQueue(dt){
   const run=this.queueRun;if(!run)return;run.elapsed+=dt;const snap=queueSnapshot(run.elapsed);
