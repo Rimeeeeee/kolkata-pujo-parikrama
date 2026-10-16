@@ -269,7 +269,7 @@ function updateNameTags(position,occupied){
  }
 }
 function catOptions(){return {started:state.started,inputPaused:state.inputPaused,queuing:state.queuing,renderCamera:!!world?.renderCamera,travelling:!!world?.target||!!world?.jumpMotion?.active};}
-function petBenchCat(){if(!world?.benchCat||!world.benchCat.pet(world.camera.position,catOptions(),performance.now()/1000))return;if(state.sound)catSound.meow();toast('You gently pet the para cat. It closes its eyes.');}
+function petBenchCat(){if(!world?.benchCat||!world.benchCat.pet(world.camera.position,catOptions(),performance.now()/1000))return;if(state.sound)catSound.meow();toast('You gently pet the para cat. It looks up at you.');}
 let catFrameTime=0;
 function updateBenchCat(position,occupied){
  const button=$('cat-marker');if(!world.benchCat){button.hidden=true;return;}

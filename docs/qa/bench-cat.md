@@ -9,3 +9,12 @@ The cat adds one small collision disc at the occupied bench end. Real-scene chec
 [Geometry model preview](bench-cat-model.png) is a software projection of the actual Three.js cat and unchanged bench geometry, inspected for paws/plank placement, model proportions and bell visibility. It is not a browser screenshot. Fresh browser QA remains unavailable because the browser tool fails during startup. No physical-device frame-rate or listening-review claim is made.
 
 Real cat recording: Dan Crosby, Meow.ogg, CC BY-SA 3.0, unchanged (14,306 bytes). In-game credit links to the full source and license in assets/cat-audio-attribution.md.
+
+
+## Face and petting refinement
+
+Only the cat model/animation module and its pet response copy changed. The cat retains its bench position, collar bell, meow, proximity gates and collision boundary. The rest of the neighbourhood is unchanged.
+
+Cat-only smooth sphere geometry, rounded ear profiles, finer surface-following tabby stripes, rounder pupils and small eye highlights soften the model. The head turns smoothly toward the actual visitor and tilts up, with a brief slow blink while petting. A connected arm approaches from the side, follows the curved crown behind the ears, and withdraws. The model preview exposed an arm crossing the face; the reach was corrected and a ray-intersection regression now checks that both eyes remain unobstructed from four visitor directions during contact.
+
+The final suite passes 144 checks. Added checks cover head direction and smooth turning, approach/contact/withdrawal, wrist attachment, crown placement, and eye visibility. Resting, petting and visitor-perspective geometry previews were inspected. [Visitor-perspective petting preview](bench-cat-petting.png). These are software projections of the actual meshes, not browser screenshots. Browser QA is still unavailable because the browser tool fails during startup.
