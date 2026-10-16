@@ -21,7 +21,7 @@ const portraitOptions={outfit:'sari',pose:'namaskar'};
 const album=new MemoryAlbum(),captionDrafts=new Map();
 const albumSaveRevisions={postcard:0,portrait:0};
 let postcardMoment=null,portraitMoment=null,albumFilter='all',lastRemovedMemory=null,collageRevision=0,collageBusy=false;
-let artDraft=[];
+let artDraft=[],artWasCompleted=false;
 let selectedBalloon=balloonChoice(BALLOON_COLOURS[0].hex,BALLOON_COLOURS[0].name);
 function toast(message){clearTimeout(toastTimer);$('toast').textContent=message;$('toast').classList.add('show');toastTimer=setTimeout(()=>$('toast').classList.remove('show'),4300);}
 function ready(){$('loading').classList.add('done');setTimeout(()=>$('loading').remove(),700);}
@@ -53,16 +53,19 @@ function begin({audio=true}={}){
  if(world?.renderer){world.started=true;world.go(PLACES[0].position,PLACES[0].look);}if(audio)sound(true);updateJourney();
 }
 function stopWalking(){joystick?.reset();world?.stop();}
-function pauseInput(){state.inputPaused=true;stopWalking();world?.cancelMove();}
+function pauseInput(){state.inputPaused=true;stopWalking();world?.cancelMove();updateJumpControl();}
+function jumpAvailable(){return state.started&&!state.inputPaused&&!state.queuing&&!!world?.canJump?.();}
+function updateJumpControl(){$('jump-button').disabled=!jumpAvailable();}
+function requestJump(){if(!jumpAvailable())return false;const jumped=world.jump();updateJumpControl();return jumped;}
 function updateTouchControls(){
  const layout=mobileLayout(innerWidth,innerHeight,matchMedia('(pointer: coarse)').matches),gate=$('landscape-modal');
- document.body.classList.toggle('touch-layout',layout.touch);joystick?.reset();
+ document.body.classList.toggle('touch-layout',layout.touch);joystick?.reset();range?.setPaused(layout.rotate);
  if(layout.rotate&&!gate.open){stopWalking();state.inputPaused=true;if(world)world.suspended=true;gate.showModal();}
  else if(!layout.rotate&&gate.open)gate.close();
- $('touch-controls').classList.toggle('hidden',!state.started||!layout.touch||layout.rotate);
+ $('touch-controls').classList.toggle('hidden',!state.started||!layout.touch||layout.rotate);updateJumpControl();
 }
 addEventListener('resize',updateTouchControls);
-function resumeInput(){state.inputPaused=state.queuing||!!world?.ritualLocked||!!document.querySelector('dialog[open]')||!$('dialogue').classList.contains('hidden');if(state.inputPaused)stopWalking();$('move-joystick').setAttribute('aria-disabled',String(state.inputPaused));if(world)world.suspended=!!document.querySelector('dialog[open]');}
+function resumeInput(){state.inputPaused=state.queuing||!!world?.ritualLocked||!!document.querySelector('dialog[open]')||!$('dialogue').classList.contains('hidden');if(state.inputPaused)stopWalking();$('move-joystick').setAttribute('aria-disabled',String(state.inputPaused));if(world)world.suspended=!!document.querySelector('dialog[open]');updateJumpControl();}
 function openModal(id){closeDialogue();pauseInput();if(world)world.suspended=true;const dialog=$(id);if(!dialog.open)dialog.showModal();}
 function closeDialogue(){if(world)world.conversationId=null;$('dialogue').classList.add('hidden');stopVoice();resumeInput();}
 async function speakCharacter(id,{explicit=false}={}){
@@ -122,7 +125,7 @@ function updateRange(round,meta){
 function openGame(){
  if(!canInteract('game',{notify:true}))return;
  begin({audio:false});openModal('game-modal');$('game-message').textContent='Take your time. Your first shot starts here.';
- try{range??=new BalloonRange($('range-canvas'),{onUpdate:updateRange,onFinish:()=>mark('game'),onPop:()=>effect('pop'),onFire:()=>effect('fire')});range.start();$('range-canvas').focus({preventScroll:true});}catch(error){console.warn('Shooting range unavailable',error);$('game-modal').close();toast('The 3D shooting range needs WebGL. Try a browser with graphics acceleration enabled.');}
+ try{range??=new BalloonRange($('range-canvas'),{onUpdate:updateRange,onFinish:()=>mark('game'),onPop:()=>effect('pop'),onFire:()=>effect('fire')});range.start();range.setPaused($('landscape-modal').open);$('range-canvas').focus({preventScroll:true});}catch(error){console.warn('Shooting range unavailable',error);$('game-modal').close();toast('The 3D shooting range needs WebGL. Try a browser with graphics acceleration enabled.');}
 }
 function updatePostcard(){
  if(!postcardSnapshot)return;const name=postcardName($('postcard-name').value);const canvas=document.createElement('canvas');const data=drawPostcard(canvas,postcardSnapshot,name);$('postcard-image').src=data;$('download-postcard').href=data;$('download-postcard').download=name?`pujo-postcard-${name.replace(/[^\p{L}\p{M}\p{N}]+/gu,'-')}.png`:'a-kolkata-pujo-evening.png';
@@ -134,10 +137,10 @@ function postcard(){
  try{const source=world.screenshot();postcardMoment=memoryMoment();postcardSnapshot=document.createElement('canvas');postcardSnapshot.width=source.width;postcardSnapshot.height=source.height;postcardSnapshot.getContext('2d').drawImage(source,0,0);updatePostcard();openModal('postcard-modal');}catch(error){console.warn(error);toast('The postcard could not be saved in this browser. Try another view.');}
 }
 function nearArt(){return world?.renderer&&!state.queuing&&withinReach(world.camera.position,ART_SPOT,{entered:state.entered});}
-function refreshArt(){drawDesign($('art-canvas'),artDraft,{preview:true});$('art-undo').disabled=!artDraft.length;$('art-clear').disabled=!artDraft.length;$('art-complete').disabled=!artDraft.length;$('art-photo').disabled=!world?.artStamps?.length||JSON.stringify(artDraft)!==JSON.stringify(world.artStamps);$('art-message').textContent=`${artDraft.length} / 24 motifs · Complete on the lane to keep these changes.`;}
-async function openArt({walk=true}={}){if(state.queuing)return;begin({audio:false});if(!world?.renderer){toast('The alpona corner needs the 3D view.');return;}if(walk)await go('alpona');if(!nearArt()){toast('Walk closer to the alpona corner beside the entrance.');return;}artDraft=(world.artStamps||[]).map(s=>({...s}));if(!artDraft.length)addMotif(artDraft);refreshArt();openModal('art-modal');}
+function refreshArt(){const placed=world?.artStamps||[],changed=JSON.stringify(artDraft)!==JSON.stringify(placed);drawDesign($('art-canvas'),artDraft,{preview:true});$('art-undo').disabled=!artDraft.length;$('art-clear').disabled=!artDraft.length;$('art-complete').disabled=!changed;$('art-complete').textContent=artDraft.length?'Complete on the lane ↗':'Remove floor design ↗';$('art-photo').disabled=!placed.length||changed;$('art-message').textContent=changed?(artDraft.length?`${artDraft.length} / 24 motifs · Draft changes. Complete on the lane to apply them.`:'Draft cleared. Choose Remove floor design to erase the alpona already on the lane.'):placed.length?'Your completed alpona is on the lane. Edit it here, or photograph it with the pandal.':'The canvas and lane are clear. Add a motif to begin a new design.';}
+async function openArt({walk=true}={}){if(state.queuing)return;begin({audio:false});if(!world?.renderer){toast('The alpona corner needs the 3D view.');return;}if(walk)await go('alpona');if(!nearArt()){toast('Walk closer to the alpona corner beside the entrance.');return;}artDraft=(world.artStamps||[]).map(s=>({...s}));if(!artDraft.length&&!artWasCompleted)addMotif(artDraft);refreshArt();openModal('art-modal');}
 function stampArt(x=.5,y=.5){if(!nearArt()||!$('art-modal').open)return;const ok=addMotif(artDraft,{design:$('art-motif').value||'lotus',colour:$('art-colour').value||'rice',size:Number($('art-size').value||.7),x,y});refreshArt();if(!ok)$('art-message').textContent='The canvas holds 24 motifs. Undo one to make room.';}
-function completeArt(){if(!nearArt()||!world.applyAlpona(artDraft))return;$('art-photo').disabled=false;$('art-message').textContent='Your alpona is on the lane! Close this card to look, or photograph it with the pandal.';toast('Your alpona is ready beside the pandal entrance.');}
+function completeArt(){if(!nearArt()||!world.applyAlpona(artDraft))return;artWasCompleted=true;refreshArt();$('art-message').textContent=artDraft.length?'Your alpona is on the lane! Close this card to look, or photograph it with the pandal.':'The floor design is removed. Add a motif to start a new draft.';toast(artDraft.length?'Your alpona is ready beside the pandal entrance.':'Your floor design has been removed.');}
 function photoArt(){if(!nearArt()||!world?.artStamps?.length||JSON.stringify(artDraft)!==JSON.stringify(world.artStamps))return;try{postcardSnapshot=world.captureAlpona();postcardMoment={...memoryMoment(),place:'My alpona by the pandal'};updatePostcard();$('art-modal').close();openModal('postcard-modal');}catch(error){console.warn('Alpona photograph unavailable',error);toast('The alpona photograph could not be rendered. Please try again.');}}
 function nearPhotoBooth(){return world?.renderer&&withinReach(world.camera.position,{x:PHOTO_SPOT.camera[0],z:PHOTO_SPOT.camera[2]},{entered:state.entered,queuing:state.queuing});}
 function updatePortraitCard(){if(!portraitSnapshot)return;const name=postcardName($('portrait-name').value),canvas=document.createElement('canvas');const url=drawPortraitCard(canvas,portraitSnapshot,name,portraitOptions.outfit);$('portrait-image').src=url;$('download-portrait').href=url;$('download-portrait').setAttribute('aria-disabled','false');$('download-portrait').download=`kolkata-pujo-${portraitOptions.outfit}${name?'-'+name.replace(/[^\p{L}\p{M}\p{N}]+/gu,'-'):''}.png`;resetAlbumSave('portrait');}
@@ -191,8 +194,8 @@ function updatePujaCaption(){if(state.place==='inside'){$('location').textConten
 function applyPujaUI(){const config=PUJA_MODES[state.pujaMode];document.body.classList.toggle('daylight',config.daylight);$('puja-time-label').textContent=config.time;$('puja-mode-label').textContent=state.pujaMode==='navami'?'Navami':state.pujaMode[0].toUpperCase()+state.pujaMode.slice(1);$('puja-mode').disabled=state.queuing;$('fireworks').disabled=state.queuing||!config.fireworks;$('fireworks').title=config.fireworks?'Watch fireworks over the street':'Fireworks are off during daylight Puja';for(const id of Object.keys(PUJA_MODES))$('mode-'+id).setAttribute('aria-pressed',String(id===state.pujaMode));$('sindoor-veil').hidden=state.pujaMode!=='dashami'||!rituals?.state.applied;lastRitualUI='';updateJourney();updatePujaCaption();updateRitualUI();}
 function switchPuja(mode){if(state.queuing||!PUJA_MODES[mode])return;closeDialogue();stopWalking();stopChorus();world?.stopFireworks?.();state.watchingFireworks=false;$('fireworks').setAttribute('aria-pressed','false');$('fireworks').querySelector('span').textContent='Fireworks';state.pujaMode=mode;rituals?.setMode(mode);$('puja-modal').close();applyPujaUI();resumeInput();}
 async function goRitual(){if(state.queuing||!rituals)return;const mode=state.pujaMode;begin({audio:false});closeDialogue();if(!state.entered)await joinQueue();if(state.pujaMode!==mode)return;if(world.ritualLocked)rituals.leave();resumeInput();world.stopFireworks();state.watchingFireworks=false;$('fireworks').setAttribute('aria-pressed','false');$('fireworks').querySelector('span').textContent='Fireworks';const target=rituals.target();state.place='inside';await world.go(target.position,target.look);applyPujaUI();}
-function startRitual(){if(!rituals)return;closeDialogue();if(rituals.action('start',state.entered,ritualBlocked())){stopWalking();updateRitualUI();}}
-function performRitual(){if(rituals?.action('perform',state.entered,ritualBlocked())){stopWalking();resumeInput();updateRitualUI();}}
+function startRitual(){if(!rituals)return;closeDialogue();const blocked=ritualBlocked();if(!rituals.controls(state.entered,blocked).start)return;world?.cancelJump?.();if(rituals.action('start',state.entered,blocked)){stopWalking();updateRitualUI();}}
+function performRitual(){if(!rituals)return;const blocked=ritualBlocked();if(!rituals.controls(state.entered,blocked).perform)return;world?.cancelJump?.();if(rituals.action('perform',state.entered,blocked)){stopWalking();resumeInput();updateRitualUI();}}
 function leaveRitual(){rituals?.leave();stopChorus();resumeInput();lastRitualUI='';updateRitualUI();}
 function updateRitualUI(){
  const hud=$('ritual-hud'),marker=$('ritual-marker');if(!rituals||!state.started||state.pujaMode==='saptami'){hud.classList.add('hidden');marker.hidden=true;return null;}
@@ -235,18 +238,20 @@ $('custom-colour').oninput=e=>selectBalloon(e.target.value,'Your custom colour')
 $('postcard-name').oninput=updatePostcard;$('restart-game').onclick=()=>{range?.restart();$('game-message').textContent='A fresh board. Take a breath and steady your aim.';};$('fire-cork').onclick=()=>range?.fire();
 addEventListener('keydown',e=>{
  if(e.target.matches('input,textarea,select'))return;const key=e.key.toLowerCase();if(key==='escape'){closeDialogue();return;}if(document.querySelector('dialog[open]'))return;if(key==='m'&&!state.queuing){e.preventDefault();openModal('places-modal');return;}if(state.inputPaused)return;
+ if(key===' '&&state.started&&!state.queuing&&!e.target.closest?.('button,a,[role="button"],[contenteditable]:not([contenteditable="false"])')){e.preventDefault();if(!e.repeat)requestJump();return;}
  if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(key)){e.preventDefault();if(state.started&&!state.queuing)world?.setKey(key,true);}
  if(key==='e'&&state.started){const visible=markerButtons.filter(m=>m.button.style.display!=='none').sort((a,b)=>Number(a.button.dataset.distance)-Number(b.button.dataset.distance));if(!$('art-marker').hidden)openArt({walk:false});else if(!$('camera-marker').hidden)openPhotoBooth({walk:false});else if(visible[0])talk(visible[0].id);}
 });
 addEventListener('keyup',e=>world?.setKey(e.key.toLowerCase(),false));addEventListener('blur',stopWalking);
 joystick=installJoystick($('move-joystick'),{onMove:(right,forward)=>world?.setMoveInput(right,forward),canMove:()=>state.started&&!state.inputPaused&&!state.queuing&&!world?.locked&&!world?.suspended});
+$('jump-button').onclick=requestJump;
 $('landscape-modal').addEventListener('cancel',event=>event.preventDefault());
 document.addEventListener('visibilitychange',()=>{stopWalking();if(document.hidden){$('dhak-audio').pause();stopVoice();stopChorus();}else if(state.sound)$('dhak-audio').play().catch(()=>sound(false));});
-function placeMarker(button,p){const half=(button.offsetWidth||0)/2;button.style.left=`${Math.max(half+12,Math.min(innerWidth-half-12,p.x))}px`;button.style.top=`${p.y}px`;}
+function placeMarker(button,p){const half=(button.offsetWidth||0)/2,height=button.offsetHeight||44,header=document.querySelector('.topbar')?.getBoundingClientRect(),footer=document.querySelector('.bottom-bar')?.getBoundingClientRect(),top=(header?.bottom||0)+8+height,bottom=(footer?.top??innerHeight)-8;button.style.left=`${Math.max(half+12,Math.min(innerWidth-half-12,p.x))}px`;button.style.top=`${Math.max(top,Math.min(bottom,p.y))}px`;}
 function onFrame(position){
- if(!world?.renderer||!state.started)return;const occupied=[],ritualPoint=updateRitualUI();if(ritualPoint)occupied.push(ritualPoint);
+ if(!world?.renderer||!state.started)return;updateJumpControl();const occupied=[],ritualPoint=updateRitualUI();if(ritualPoint)occupied.push(ritualPoint);
  const artMarker=$('art-marker'),artPoint=world.project([ART_SPOT.x,1.1,ART_SPOT.z]);artMarker.hidden=!(artPoint.visible&&nearArt()&&!state.inputPaused&&!world.renderCamera);if(!artMarker.hidden){placeMarker(artMarker,artPoint);occupied.push(artPoint);}
- $('put-away').hidden=!world.purchase||!!world.ritualLocked||!!world.renderCamera;
+ $('put-away').hidden=!world.purchase||world.purchase.prop?.visible===false||!!world.ritualLocked||!!world.renderCamera;
  const cameraMarker=$('camera-marker'),cameraPoint=world.project([PHOTO_SPOT.camera[0],2.45,PHOTO_SPOT.camera[2]]);cameraMarker.hidden=!(cameraPoint.visible&&nearPhotoBooth()&&!state.inputPaused&&!world.renderCamera);if(!cameraMarker.hidden){placeMarker(cameraMarker,cameraPoint);occupied.push(cameraPoint);}
  for(const m of markerButtons){const anchor=personPosition(m.id),p=world.project(anchor),d=Math.hypot(position.x-anchor[0],position.z-anchor[2]);let visible=!world.renderCamera&&p.visible&&canInteract(m.id);if(visible&&occupied.some(q=>Math.abs(q.x-p.x)<150&&Math.abs(q.y-p.y)<48))visible=false;if(visible)occupied.push(p);m.button.style.display=visible?'flex':'none';if(visible){placeMarker(m.button,p);m.button.dataset.distance=d;}}
  if(state.currentCharacter&&!$('dialogue').classList.contains('hidden')&&!canInteract(state.currentCharacter.id))closeDialogue();

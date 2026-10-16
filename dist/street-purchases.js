@@ -21,26 +21,31 @@ function model(w,kind){
   w.ball(leaf,[0,.02,0],[.26,.035,.21],g);
   for(let i=0;i<(kind==='sandesh'?3:5);i++){const a=i*2.4,x=Math.sin(a)*.15,z=Math.cos(a)*.12;w.ball(kind==='fuchka'?'#c18c43':'#f2dfb5',[x,.08,z],kind==='sandesh'?[.066,.032,.06]:[.06,.055,.06],g);if(kind==='fuchka')w.ball('#665334',[x,.126,z],[.027,.009,.026],g);}
  }
- const hand=new THREE.Group();hand.name='your-serving-hand';g.add(hand);g.servingHand=hand;
+ const prop=new THREE.Group();prop.name=g.name;g.name='serving-contents';prop.add(g);prop.contents=g;
+ const hand=new THREE.Group();hand.name='your-serving-hand';prop.add(hand);prop.servingHand=hand;
  w.ball('#b38a65',[0,-.025,.045],[.085,.032,.12],hand);w.ball('#b38a65',[-.075,.015,.03],[.028,.027,.07],hand);
  w.rod([.025,-.045,.10],[.08,-.10,.29],.05,'#b38a65',hand);
  for(let i=0;i<4;i++)w.ball('#b38a65',[-.055+i*.035,-.008,-.055],[.014,.025,.06],hand);
- return g;
+ return prop;
 }
 function kindFor(shop,id){return shop==='flowers'?'flowers':shop==='tea'?'tea':shop==='jhalmuri'?'jhalmuri':shop==='fuchka'?'fuchka':id==='mishti-doi'?'doi':id==='sandesh'?'sandesh':'roshogolla';}
 export function presentPurchase(w,shop,item){
  const vendor=w.vendorPeople.get(shop),valid=STALL_MENUS[shop]?.items.find(i=>i.id===item?.id);
  if(!vendor||!valid||w.locked||w.ritualLocked||!withinReach(w.camera.position,vendor.g.position,{entered:w.hasEntered}))return false;
  putAwayPurchase(w);const kind=kindFor(shop,item.id);w.servingModels??=new Map();let prop=w.servingModels.get(kind);
- if(!prop){prop=model(w,kind);w.servingModels.set(kind,prop);}w.scene.add(prop);prop.visible=true;prop.scale.setScalar(shop==='flowers'?{'jhuri-small':.75,'jhuri-medium':1,'jhuri-large':1.2}[item.id]:1);
+ if(!prop){prop=model(w,kind);w.servingModels.set(kind,prop);}w.scene.add(prop);prop.visible=true;prop.contents.scale.setScalar(shop==='flowers'?{'jhuri-small':.75,'jhuri-medium':1,'jhuri-large':1.2}[item.id]:1);
  vendor.greetingUntil=0;if(vendor.gesture)vendor.gesture.visible=false;vendor.arms.forEach(a=>a.visible=true);vendor.armPose??=new RitualArms(vendor);
  w.purchase={shop,item:valid,prop,vendor,elapsed:0,start:new THREE.Vector3(),end:new THREE.Vector3()};updatePurchase(w,0);return true;
 }
 export function putAwayPurchase(w){if(!w.purchase)return;w.purchase.vendor.armPose?.restore();w.purchase.prop.removeFromParent();w.purchase=null;}
+export function finishPurchaseHandoff(w,vendor){
+ const p=w.purchase;if(!p||p.vendor!==vendor||p.elapsed>=1.15)return;
+ p.start.copy(p.prop.position);p.elapsed=1.15;vendor.armPose?.restore();
+}
 export function updatePurchase(w,dt){
  const p=w.purchase;if(!p)return;p.elapsed+=dt;const {prop,vendor}=p;
  // Put serving hands away during a ritual and third-person camera shots.
- prop.visible=!w.ritualLocked&&!w.renderCamera;
+ prop.visible=!w.ritualLocked&&!w.renderCamera&&!w.rituals?.handRig.visible;
  prop.servingHand.visible=w.reduced||p.elapsed>=1.85;
  const target=new THREE.Vector3(.30,1.30,.51);vendor.body.localToWorld(target);
  if(p.elapsed<1.15&&!w.reduced){vendor.armPose.pose(1,target);vendor.body.updateWorldMatrix(true,true);vendor.arms[1].getObjectByName('human-hand').getWorldPosition(p.start);p.start.y+=.04;}

@@ -27,9 +27,9 @@ export function buildAlponaCorner(w){
  w.artCamera=new THREE.PerspectiveCamera(64,1.5,.1,100);w.artCamera.position.set(-3.8,6.4,18.8);w.artCamera.lookAt(-.6,3.2,-2);w.scene.add(w.artCamera);
 }
 export function applyAlpona(w,stamps){
- if(!w.personalAlpona||!stamps.length||stamps.length>ART_LIMIT)return false;
+ if(!w.personalAlpona||!Array.isArray(stamps)||stamps.length>ART_LIMIT)return false;
  const clean=[];for(const s of stamps)if(!addMotif(clean,s))return false;
- w.artStamps=clean;drawDesign(w.personalAlpona.material.map.image,clean);w.personalAlpona.material.map.needsUpdate=true;w.personalAlpona.visible=true;return true;
+ w.artStamps=clean;drawDesign(w.personalAlpona.material.map.image,clean);w.personalAlpona.material.map.needsUpdate=true;w.personalAlpona.visible=clean.length>0;return true;
 }
 export function captureAlpona(w){
  if(!w.personalAlpona.visible)throw new Error('Complete your alpona first');

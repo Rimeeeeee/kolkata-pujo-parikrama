@@ -1,6 +1,7 @@
 import * as THREE from './assets/three.module.js';
 import {CHARACTERS} from './neighbourhood.js';
 import {moveAmongPeople} from './movement.js';
+import {finishPurchaseHandoff} from './street-purchases.js';
 const turnTowards=(from,to,k)=>from+Math.atan2(Math.sin(to-from),Math.cos(to-from))*Math.min(1,k);
 
 export function buildStreetDetails(w){
@@ -53,7 +54,7 @@ export function installPeopleLife(w){
  const walkers=w.people.filter(p=>p.batched&&p.g.position.z>20).slice(-3);for(const [i,p] of walkers.entries()){p.walkPoints=[{x:p.home.x,z:p.home.z},{x:p.home.x+(p.home.x>0?-.8:.8),z:p.home.z-1.2}];p.walkIndex=i%2;p.walkWait=i*1.1;}
 }
 
-export function greetPerson(w,id){const p=w.characters.get(id);if(!p||p.nonInteractable)return;if(p.pose==='dhak'){w.conversationId=id;return;}p.greetingUntil=w.lifeTime+4.5;p.greetingStart=w.lifeTime;w.conversationId=id;}
+export function greetPerson(w,id){const p=w.characters.get(id);if(!p||p.nonInteractable)return;if(p.pose==='dhak'){w.conversationId=id;return;}finishPurchaseHandoff(w,p);p.greetingUntil=w.lifeTime+4.5;p.greetingStart=w.lifeTime;w.conversationId=id;}
 export function characterPosition(w,id){const p=w.characters.get(id);return p?[p.g.position.x,p.g.position.y+2.22*p.g.scale.y,p.g.position.z]:null;}
 
 export function poseWalkingLegs(p,phase,walking){p.legs.forEach((leg,i)=>{const wave=Math.sin(phase+i*Math.PI);leg.rotation.x=walking?wave*.25:0;leg.position.y=.37+(walking?Math.max(0,wave)*.025:0);});}

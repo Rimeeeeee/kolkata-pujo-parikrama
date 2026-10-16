@@ -2,16 +2,18 @@ import * as THREE from './assets/three.module.js';
 import {buildRequestedAdditions} from './pujo-additions.js';
 import {alponaMaterials} from './alpona.js';
 import {makePerson} from './human-model.js';
+import {RitualArms} from './ritual-arms.js';
+import {installDhakPerformance} from './dhak-performance.js';
 import {presentPurchase,putAwayPurchase,updatePurchase} from './street-purchases.js';
 import {buildAlponaCorner,applyAlpona,captureAlpona} from './alpona-corner.js';
 import {buildPhotoBooth,capturePortrait} from './photo-booth.js';
 import {constrainWalk} from './game-state.js';
-import {queueSnapshot,moveAmongPeople,crowdPath,WALK_SPEED} from './movement.js';
+import {queueSnapshot,moveAmongPeople,crowdPath,WALK_SPEED,JumpMotion} from './movement.js';
 import {buildStreetDetails,installPeopleLife,greetPerson,characterPosition,poseWalkingLegs,updatePeople,createFireworks,updateFireworks} from './scene-life.js';
 
 export class PujoWorld {
  constructor(canvas,{onFrame,onMove,onReady,onFail}){
-  this.canvas=canvas;this.onFrame=onFrame;this.onMove=onMove;this.onReady=onReady;this.onFail=onFail;this.animations=[];this.people=[];this.keys=new Set();this.moveInput={right:0,forward:0};this.started=false;this.hasEntered=false;this.reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  this.canvas=canvas;this.onFrame=onFrame;this.onMove=onMove;this.onReady=onReady;this.onFail=onFail;this.animations=[];this.people=[];this.keys=new Set();this.moveInput={right:0,forward:0};this.jumpMotion=new JumpMotion();this.started=false;this.hasEntered=false;this.reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
   this.scene=new THREE.Scene();this.scene.background=new THREE.Color('#363342');this.scene.fog=new THREE.FogExp2('#39313d',.017);
   this.camera=new THREE.PerspectiveCamera(innerWidth<650?62:54,innerWidth/innerHeight,.1,100);this.camera.position.set(3,3.2,25);this.scene.add(this.camera);this.yaw=.1;this.pitch=-.025;this.target=null;
   try{this.renderer=new THREE.WebGLRenderer({canvas,antialias:true,preserveDrawingBuffer:true,powerPreference:'high-performance'});}catch(e){onFail(e);return;}
@@ -94,7 +96,7 @@ export class PujoWorld {
   this.box(red,[0,4.7,-21.65],[20.5,8.8,.5]);this.box('#813a30',[0,1,-20.2],[15,1.4,2.6]);this.box('#c4a16a',[0,1.75,-19.9],[15.5,.15,3.1]);
   // Painted surrounds bridge the image to the real stage beneath the canopy.
   for(const side of [-1,1]){this.box('#85392f',[side*8.1,4.4,-21.1],[3.95,7.9,.12]);this.box('#c39e61',[side*6.11,4.35,-21.06],[.10,7.95,.10]);this.flowers([side*6.28,8.25,-21],[side*6.28,1.7,-21]);}this.box('#cba66d',[0,8.35,-21.05],[12.5,.20,.12]);
-  const loader=new THREE.TextureLoader();loader.load('./assets/idol.png',tex=>{tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=4;const altar=new THREE.Mesh(new THREE.PlaneGeometry(12,8),new THREE.MeshBasicMaterial({map:tex}));altar.name='complete-idol-ensemble';altar.position.set(0,4.25,-21.25);this.altar=altar;this.scene.add(altar);},undefined,()=>this.text('মা দুর্গা',[0,4.5,-21.1],10,3,{bg:'#7e2f29',fg:'#ffe7ad'}));
+  const loader=new THREE.TextureLoader();loader.load('./assets/idol.png?v=ten-arms-kartick-grip',tex=>{tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=4;const altar=new THREE.Mesh(new THREE.PlaneGeometry(12,8),new THREE.MeshBasicMaterial({map:tex}));altar.name='complete-idol-ensemble';altar.position.set(0,4.25,-21.25);this.altar=altar;this.scene.add(altar);},undefined,()=>this.text('মা দুর্গা',[0,4.5,-21.1],10,3,{bg:'#7e2f29',fg:'#ffe7ad'}));
   for(let x of [-8.7,8.7]){this.column(x,-20.3,ivory,red);this.flowers([x,7.7,-19.9],[x,1.7,-19.9]);this.lamp(x*.82,.45,-17.6,1.4);}
   for(let x=-5.4;x<=5.5;x+=1.2)this.lamp(x,1.8,-18.8,.35);
   // Banana plants at the gateway.
@@ -133,6 +135,7 @@ export class PujoWorld {
   const bunch=new THREE.Group();bunch.position.set(7.8,1.2,19);this.scene.add(bunch);for(let i=0;i<9;i++){const a=i*2.399,r=.45+Math.floor(i/4)*.2;const p=[Math.cos(a)*r,2.2+Math.sin(i*1.3)*.5,Math.sin(a)*r];this.ball(colors[i%5],p,[.27,.36,.25],bunch,{roughness:.4});this.line([[0,0,0],p],'#c1b6a2',bunch);}this.animations.push(t=>{bunch.rotation.z=Math.sin(t*.7)*.035;});
  }
  stall(x,z,color,label,rotation,kind){const s=new THREE.Group();s.name='stall-'+kind;s.userData.kind=kind;s.position.set(x,0,z);s.rotation.y=rotation;this.scene.add(s);this.stalls.push(s);
+  (this.staticObstacles??=[]).push({kind:'stall-'+kind,x:x+Math.sin(rotation)*.05,z:z+Math.cos(rotation)*.05,halfX:2.05,halfZ:.9,rotation});
   this.box('#765038',[0,.48,0],[3.9,.96,1.6],s);this.box('#b28b55',[0,1.01,.05],[4.1,.1,1.8],s);this.box('#624732',[0,2.1,-.8],[4,2.5,.1],s);for(let xx of [-1.9,1.9])this.cyl('#ad8c5a',[xx,1.9,.7],[.035,3.8,.035],s);
   const roof=this.box(color,[0,3.7,0],[4.8,.16,2.8],s);roof.rotation.x=.08;
   for(let i=0;i<8;i++)this.box(i%2?color:'#d3b58a',[-2.1+i*.6,3.51,1.35],[.6,.3,.08],s);this.text(label,[0,3.05,1],3.8,.7,{bg:color,parent:s,size:88});
@@ -199,12 +202,19 @@ export class PujoWorld {
   this.visitorBatches=this.batchPeople(staticPeople);
   // Bengali priest, dhoti and uttariya, facing Maa and circling the arati lamp.
   const priest=this.person(.35,-17.5,{outfit:'#e6d6b4',priest:true,rotation:Math.atan2(-.35,-3.75),pose:'arati'});this.priest=priest;priest.nonInteractable=true;priest.arms[1].rotation.x=-1.3;
-  const lampGroup=new THREE.Group();priest.body.add(lampGroup);lampGroup.position.set(.43,1.4,.52);this.cyl('#b39745',[0,0,0],[.25,.05,.25],lampGroup);for(let i=0;i<5;i++){const a=i/5*Math.PI*2;this.ball('#ffe5a0',[Math.cos(a)*.18,.12,Math.sin(a)*.18],[.035,.13,.035],lampGroup,{emissive:'#ffb13a',emissiveIntensity:3});}
-  this.priestLamp=lampGroup;this.animations.push(t=>{if(this.reduced||(this.pujaMode&&this.pujaMode!=='saptami'))return;lampGroup.position.x=.36+Math.sin(t*1.7)*.25;lampGroup.position.y=1.5+Math.cos(t*1.7)*.16;priest.arms[1].rotation.z=.15+Math.sin(t*1.7)*.2;});
+  const lampGroup=new THREE.Group();priest.body.add(lampGroup);this.cyl('#b39745',[0,0,0],[.25,.05,.25],lampGroup);for(let i=0;i<5;i++){const a=i/5*Math.PI*2;this.ball('#ffe5a0',[Math.cos(a)*.18,.12,Math.sin(a)*.18],[.035,.13,.035],lampGroup,{emissive:'#ffb13a',emissiveIntensity:3});}
+  priest.armPose=new RitualArms(priest);const lampGrip=new THREE.Vector3();this.priestLamp=lampGroup;
+  this.animations.push(t=>{
+   if(this.pujaMode&&this.pujaMode!=='saptami'){priest.armPose.restore();return;}
+   const phase=this.reduced?0:t*1.7;
+   lampGrip.set(.30+Math.sin(phase)*.11,1.40+Math.cos(phase)*.09,.43);priest.body.localToWorld(lampGrip);priest.armPose.pose(1,lampGrip);
+   const arm=priest.armPose.arms[1];arm.palm.rotation.x=Math.PI/2;arm.thumb.position.copy(arm.thumbOffset).applyQuaternion(arm.palm.quaternion).add(arm.palm.position);
+   priest.body.worldToLocal(lampGrip);lampGroup.position.copy(lampGrip);lampGroup.position.y+=.04;
+  });
   // Dhaki with a suspended cylindrical dhak, carrying strap, ropes and two curved sticks.
   const dhaki=this.person(-6.5,-7.7,{outfit:'#dfcbac',rotation:.55,pose:'dhak'});const drum=new THREE.Group();dhaki.body.add(drum);drum.position.set(0,.95,.48);drum.rotation.z=.27;const barrel=this.mesh(new THREE.CylinderGeometry(.31,.33,.85,16), '#97452e',[0,0,0],null,drum);barrel.rotation.z=Math.PI/2;
   for(let xx of [-.44,.44]){const head=this.cyl('#d5bd87',[xx,0,0],[.34,.045,.34],drum);head.rotation.z=Math.PI/2;const rim=new THREE.Mesh(new THREE.TorusGeometry(.34,.025,6,20),this.mat('#c9a66a'));rim.rotation.y=Math.PI/2;rim.position.x=xx;drum.add(rim);}for(let i=0;i<10;i++){const a=i/10*Math.PI*2;this.rod([-.42,Math.cos(a)*.33,Math.sin(a)*.33],[.42,Math.cos(a+.5)*.33,Math.sin(a+.5)*.33],.012,'#e0caa2',drum);}
-  this.rod([-.22,1.6,0],[.38,.9,.48],.035,'#ad6045',dhaki.body);for(let i=0;i<2;i++){const stick=this.rod([i?.2:-.3,1.45,.5],[i?.4:-.45,1.15,.85],.012,'#d7b875',dhaki.body);this.animations.push(t=>{if(!this.reduced){dhaki.arms[i].rotation.x=-.8+Math.sin(t*14+i*Math.PI)*.4;stick.position.y=1.3+Math.sin(t*14+i*Math.PI)*.12;}});}
+  this.rod([-.22,1.6,0],[.38,.9,.48],.035,'#ad6045',dhaki.body);installDhakPerformance(this,dhaki,drum);
   const plumes=new THREE.Group();plumes.position.set(-.35,0,0);drum.add(plumes);for(let i=0;i<7;i++)this.ball('#efdfba',[0,.45+i*.06,-.1+i*.055],[.06,.35,.025],plumes);
  }
  buildAtmosphere(){
@@ -235,26 +245,53 @@ export class PujoWorld {
  greet(id){greetPerson(this,id);}
  startFireworks(){this.fireworks.elapsed=0;this.fireworks.active=true;this.fireworks.points.visible=true;updateFireworks(this,0);}
  stopFireworks(){this.fireworks.active=false;this.fireworks.points.visible=false;}
- obstacles(){const obstacles=this.people.filter(p=>!p.ritualHidden).map(p=>({x:p.g.position.x,z:p.g.position.z,radius:p.radius}));if(this.artBench)obstacles.push({x:-6.3,z:5.5,radius:.72});if(this.photoRig)obstacles.push({x:0,z:14.5,radius:.47});return obstacles.concat(this.rituals?.obstacles()||[]);}
+ obstacles(){const obstacles=this.people.filter(p=>!p.ritualHidden).map(p=>({x:p.g.position.x,z:p.g.position.z,radius:p.radius}));if(this.artBench)obstacles.push({x:-6.3,z:5.5,radius:.72});if(this.photoRig)obstacles.push({x:0,z:14.5,radius:.47});return obstacles.concat(this.staticObstacles||[],this.rituals?.obstacles()||[]);}
  joinQueue(onUpdate=()=>{}){this.stop();this.cancelMove();this.locked=true;return new Promise(resolve=>{this.queueRun={elapsed:0,resolve,onUpdate,released:false};});}
  updateQueue(dt){const run=this.queueRun;if(!run)return;run.elapsed+=dt;const snap=queueSnapshot(run.elapsed);this.queuePeople.forEach((p,i)=>{const q=snap.people[i],stepping=Math.hypot(p.g.position.x-q.x,p.g.position.z-q.z)>.0001;poseWalkingLegs(p,run.elapsed*9+i,stepping&&!this.reduced);p.g.position.set(q.x,q.z<1?.4:0,q.z);p.g.rotation.y=q.yaw;if(!this.reduced){p.arms[0].rotation.x=Math.sin(run.elapsed*9+i)*.15;p.arms[1].rotation.x=-Math.sin(run.elapsed*9+i)*.15;}});
   if(!run.released){this.camera.position.set(snap.player.x,snap.player.z<1?2.1:1.9,snap.player.z);this.yaw=snap.player.yaw+Math.PI;this.pitch=.04;run.onUpdate(snap);if(snap.done){this.hasEntered=true;this.locked=false;run.released=true;run.resolve();}}
   if(snap.settled)this.queueRun=null;
  }
- go(position,look,{immediate=false}={}){this.cancelMove();const p=new THREE.Vector3(...position),l=new THREE.Vector3(...look),v=l.clone().sub(p).normalize(),yaw=Math.atan2(-v.x,-v.z),pitch=Math.asin(v.y);const walkable=({x,z})=>{const [a,b]=constrainWalk(x,z,this.hasEntered);return Math.abs(a-x)<.02&&Math.abs(b-z)<.02;};const waypoints=crowdPath(this.camera.position,p,this.obstacles(),walkable);if(!waypoints.length)return Promise.resolve();const end=waypoints.at(-1);p.x=end.x;p.z=end.z;if(immediate){this.camera.position.copy(p);this.yaw=yaw;this.pitch=pitch;return Promise.resolve();}return new Promise(resolve=>{this.target={p,yaw,pitch,resolve,waypoints,index:0};});}
+ go(position,look,{immediate=false}={}){this.cancelMove();this.cancelJump();const p=new THREE.Vector3(...position),goal=p.clone(),l=new THREE.Vector3(...look),v=l.clone().sub(p).normalize(),yaw=Math.atan2(-v.x,-v.z),pitch=Math.asin(v.y);const walkable=({x,z})=>{const [a,b]=constrainWalk(x,z,this.hasEntered);return Math.abs(a-x)<.02&&Math.abs(b-z)<.02;};const waypoints=crowdPath(this.camera.position,p,this.obstacles(),walkable);if(!waypoints.length)return Promise.resolve();const end=waypoints.at(-1);p.x=end.x;p.z=end.z;if(immediate){this.camera.position.copy(p);this.yaw=yaw;this.pitch=pitch;return Promise.resolve();}return new Promise(resolve=>{this.target={p,goal,yaw,pitch,resolve,waypoints,walkable,index:0,bestDistance:Infinity,stalledFor:0,replans:0};});}
+ updateGuidedMove(dt){
+  const tar=this.target;if(!tar)return;
+  const waypoint=tar.waypoints[tar.index],from=this.camera.position,dist=Math.hypot(waypoint.x-from.x,waypoint.z-from.z),step=Math.min(dist,dt*5.5),next=moveAmongPeople(from,{x:from.x+(waypoint.x-from.x)*step/(dist||1),z:from.z+(waypoint.z-from.z)*step/(dist||1)},this.obstacles());
+  from.x=next.x;from.z=next.z;from.y+=(tar.p.y-from.y)*Math.min(1,dt*5);
+  const angle=Math.atan2(Math.sin(tar.yaw-this.yaw),Math.cos(tar.yaw-this.yaw));this.yaw+=angle*Math.min(1,dt*4);this.pitch+=(tar.pitch-this.pitch)*Math.min(1,dt*4);
+  const remaining=Math.hypot(from.x-waypoint.x,from.z-waypoint.z);
+  if(remaining<.035){
+   if(tar.index<tar.waypoints.length-1){tar.index++;tar.bestDistance=Infinity;tar.stalledFor=0;}
+   else if(Math.abs(angle)<.01){this.target=null;tar.resolve();}
+   return;
+  }
+  tar.stalledFor+=dt;if(remaining<tar.bestDistance-.025){tar.bestDistance=remaining;tar.stalledFor=0;}
+  if(tar.stalledFor<.8)return;
+  // A visitor or counter can invalidate a planned segment. Retry from the
+  // actual collision-safe position, keeping the same destination and promise.
+  if(tar.replans>=6){this.target=null;tar.resolve(false);return;}
+  tar.replans++;tar.stalledFor=0;
+  const waypoints=crowdPath(from,tar.goal,this.obstacles(),tar.walkable);
+  if(waypoints.length){tar.waypoints=waypoints;tar.index=0;tar.bestDistance=Infinity;const end=waypoints.at(-1);tar.p.x=end.x;tar.p.z=end.z;}
+ }
  cancelMove(){if(this.target){const resolve=this.target.resolve;this.target=null;resolve();}}
  setKey(key,down){if(down&&!this.locked)this.keys.add(key);else this.keys.delete(key);if(down&&!this.locked)this.cancelMove();}
  setMoveInput(right,forward){if(this.locked||this.suspended||this.ritualLocked||!Number.isFinite(right)||!Number.isFinite(forward)){this.moveInput={right:0,forward:0};return;}const length=Math.max(1,Math.hypot(right,forward));this.moveInput={right:right/length,forward:forward/length};if(right||forward)this.cancelMove();}
- stop(){this.keys.clear();this.moveInput={right:0,forward:0};this.drag=null;}
+ jumpBlocked(){const s=this.rituals?.state;return this.locked||this.suspended||this.ritualLocked||!!this.renderCamera||!!this.rituals?.handRig?.visible||(s?.mode==='ashtami'&&s.started&&s.phase!=='complete')||(s?.mode==='dashami'&&s.phase==='applying');}
+ canJump(){return this.started&&!this.jumpBlocked()&&!this.jumpMotion.active;}
+ jump(){if(!this.canJump())return false;this.cancelMove();return this.jumpMotion.start();}
+ cancelJump(){this.camera.position.y-=this.jumpMotion.height;this.jumpMotion.reset();}
+ stop(){this.keys.clear();this.moveInput={right:0,forward:0};this.drag=null;this.cancelJump();}
  project(pos){const v=new THREE.Vector3(...pos).project(this.camera);return {x:(v.x*.5+.5)*innerWidth,y:(-.5*v.y+.5)*innerHeight,visible:v.z>0&&v.z<1&&Math.abs(v.x)<.94&&Math.abs(v.y)<.85};}
  frame(now){
   if(this.suspended){this.last=now;requestAnimationFrame(n=>this.frame(n));return;}
   const dt=Math.min((now-this.last)/1000,.05);this.last=now;const t=now/1000;
+  this.camera.position.y-=this.jumpMotion.height;
   this.updateQueue(dt);updatePeople(this,dt);updateFireworks(this,dt);
-  if(this.target){const tar=this.target,w=tar.waypoints[tar.index],from=this.camera.position,dist=Math.hypot(w.x-from.x,w.z-from.z),step=Math.min(dist,dt*5.5),next=moveAmongPeople(from,{x:from.x+(w.x-from.x)*step/(dist||1),z:from.z+(w.z-from.z)*step/(dist||1)},this.obstacles());from.x=next.x;from.z=next.z;from.y+=(tar.p.y-from.y)*Math.min(1,dt*5);const a=Math.atan2(Math.sin(tar.yaw-this.yaw),Math.cos(tar.yaw-this.yaw));this.yaw+=a*Math.min(1,dt*4);this.pitch+=(tar.pitch-this.pitch)*Math.min(1,dt*4);if(Math.hypot(from.x-w.x,from.z-w.z)<.035){if(tar.index<tar.waypoints.length-1)tar.index++;else if(Math.abs(a)<.01){this.target=null;tar.resolve();}}}
+  this.updateGuidedMove(dt);
   if(this.started&&!this.locked&&!this.ritualLocked&&(this.keys.size||this.moveInput.right||this.moveInput.forward)){let {forward,right}=this.moveInput;for(let k of this.keys){if(['w','arrowup','forward'].includes(k))forward++;if(['s','arrowdown','back'].includes(k))forward--;if(['d','arrowright','right'].includes(k))right++;if(['a','arrowleft','left'].includes(k))right--;}
    const norm=Math.max(1,Math.hypot(forward,right)),speed=dt*WALK_SPEED;const x=this.camera.position.x+(-Math.sin(this.yaw)*forward+Math.cos(this.yaw)*right)*speed/norm,z=this.camera.position.z+(-Math.cos(this.yaw)*forward-Math.sin(this.yaw)*right)*speed/norm;const [nx,nz]=constrainWalk(x,z,this.hasEntered);const safe=moveAmongPeople(this.camera.position,{x:nx,z:nz},this.obstacles());this.camera.position.x=safe.x;this.camera.position.z=safe.z;this.camera.position.y+=( (nz<1?2.1:1.9)-this.camera.position.y)*dt*6;if(z<1&&!this.hasEntered)this.onMove?.('queue');
   }
+  if(this.jumpBlocked())this.jumpMotion.reset();
+  this.camera.position.y+=this.jumpMotion.step(dt);
   this.camera.rotation.set(this.pitch,this.yaw,0,'YXZ');
   if(this.companionBalloon){this.companionBalloon.position.x=Math.min(1.05,.68*2.05*Math.tan(this.camera.fov*Math.PI/360)*this.camera.aspect);if(!this.reduced){this.companionBalloon.position.y=.38+Math.sin(t*1.5)*.035;this.companionBalloon.rotation.z=Math.sin(t*.8)*.045;}}
   for(const anim of this.animations)anim(t);
