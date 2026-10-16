@@ -56,6 +56,8 @@ export function installPeopleLife(w){
 export function greetPerson(w,id){const p=w.characters.get(id);if(!p||p.nonInteractable)return;if(p.pose==='dhak'){w.conversationId=id;return;}p.greetingUntil=w.lifeTime+4.5;p.greetingStart=w.lifeTime;w.conversationId=id;}
 export function characterPosition(w,id){const p=w.characters.get(id);return p?[p.g.position.x,p.g.position.y+2.22*p.g.scale.y,p.g.position.z]:null;}
 
+export function poseWalkingLegs(p,phase,walking){p.legs.forEach((leg,i)=>{const wave=Math.sin(phase+i*Math.PI);leg.rotation.x=walking?wave*.25:0;leg.position.y=.37+(walking?Math.max(0,wave)*.025:0);});}
+
 export function updatePeople(w,dt){
  w.lifeTime+=dt;w.crowdTick+=dt;const refresh=w.crowdTick>=1/24;if(refresh){w.crowdTick=0;for(const mesh of w.visitorBatches||[])mesh.count=0;}
  for(const p of w.people){
@@ -64,7 +66,7 @@ export function updatePeople(w,dt){
   if(p.walkPoints&&!w.reduced&&!greeting&&!w.target&&w.started&&!w.locked&&!w.conversationId){p.walkWait-=dt;if(p.walkWait<=0){const target=p.walkPoints[p.walkIndex],dist=Math.hypot(target.x-p.g.position.x,target.z-p.g.position.z),step=Math.min(dist,.65*dt);const others=w.people.filter(o=>o!==p).map(o=>({x:o.g.position.x,z:o.g.position.z,radius:o.radius}));others.push({x:w.camera.position.x,z:w.camera.position.z,radius:.36});const safe=moveAmongPeople(p.g.position,{x:p.g.position.x+(target.x-p.g.position.x)*step/(dist||1),z:p.g.position.z+(target.z-p.g.position.z)*step/(dist||1)},others,p.radius);if(Math.hypot(safe.x-p.g.position.x,safe.z-p.g.position.z)>.0001)p.walkYaw=Math.atan2(safe.x-p.g.position.x,safe.z-p.g.position.z);p.g.position.x=safe.x;p.g.position.z=safe.z;if(dist<.08){p.walkIndex=1-p.walkIndex;p.walkWait=2.5;}p.walking=dist>.08;}else p.walking=false;}else p.walking=false;
   if(!w.reduced&&!queueActive){p.body.position.y=0;p.head.rotation.y=Math.sin(phase*.48)*.13;p.head.rotation.x=Math.sin(phase*.72)*.035;p.body.rotation.z=0;
    // Shallow swing with a compensating hip lift keeps soles above the ground.
-   p.legs.forEach((leg,i)=>{const stride=p.walking?Math.sin(t*6+i*Math.PI)*.25:0;leg.rotation.x=stride;leg.position.y=.37+Math.max(0,Math.sin(t*6+i*Math.PI))*(p.walking?.025:0);});
+   poseWalkingLegs(p,t*6,p.walking);
    if(p.walking)p.g.rotation.y=turnTowards(p.g.rotation.y,p.walkYaw??p.restYaw,dt*4);
    if(['idle','photo','pray'].includes(p.pose))for(let i=0;i<2;i++){p.arms[i].rotation.x=p.restArms[i].x+Math.sin(phase*(p.walking?6:1.15)+i*Math.PI)*(p.walking?.3:.055);p.arms[i].rotation.z=p.restArms[i].z+Math.sin(phase*.8+i)*.035;}
   }

@@ -4,7 +4,7 @@ Branch: `improve-pujo-models-and-street-life`, from `95f6e1607761eba48becfdd7173
 
 ## Automated verification
 
-`npm test`: 107 checks in 13 suites. Real Three.js scene tests retain the existing three-round Anjali, Navami dance, reciprocal sindoor contact, priest orientation, queue, navigation, portrait and reduced-motion regressions. Additional checks cover all menu servings and transfer contact, bounded model reuse, remote/invalid purchases, put-away, floor-texture replacement, complete floor-art camera bounds, hidden instance compaction and distant detail, sandal clearance, art input validation/capacity, guided editor/undo/completion, PNG and album save.
+`npm test`: 107 checks across 13 test files. Real Three.js scene tests retain the existing three-round Anjali, Navami dance, reciprocal sindoor contact, priest orientation, queue, navigation, portrait and reduced-motion regressions. Additional checks cover all menu servings and transfer contact, bounded model reuse, remote/invalid purchases, put-away, floor-texture replacement, complete floor-art camera bounds, hidden instance compaction and distant detail, sandal clearance, art input validation/capacity, guided editor/undo/completion, PNG and album save.
 
 The renderer in these tests is a stub; browser rendering is checked separately below.
 
@@ -17,6 +17,8 @@ The local preview was entered through Explore places. Begin, Sound and Hear gree
 - Full alpona plus pandal in the resulting PNG; the first camera crop was corrected and all four floor corners now have a framing regression.
 - Add to album confirms persistent browser save.
 - Sari namaskar and dhoti-kurta wave PNGs retain the pandal background.
+- Mobile queue entry and joystick walking, all three Anjali offerings, Navami start/join/leave, and a reciprocal Dashami exchange complete with the revised models. Browser error/warning logs are empty.
+- Queue figures use the same planted-foot step cycle as the street walkers. The queue simulation asserts that steps occur while advancing.
 - Landscape 844x390 and 667x375: editor scrolls vertically, controls remain reachable, and there is no horizontal dialog overflow. A sticky close control remains available while scrolling.
 
 ## Limits

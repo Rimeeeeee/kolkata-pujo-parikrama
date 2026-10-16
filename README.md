@@ -34,7 +34,7 @@ Run `npm test`: navigation, projectile hit/miss and timer/scoring tests; actual 
 
 More than 60 visitors and stallkeepers, with static visitors and street components instanced to reduce draw calls. Pixel ratio is capped at 1.25 on narrow screens and 1.5 otherwise. Khorkhori shutters now face into the courtyard, with louver textures, handles, layered frames, arched fanlights and iron spokes. Alpona reaches 6.4 metres across, using one transparent texture per design. Shop counters are lower and vendors stand on raised platforms. The roll counter is removed.
 
-Courtyard and alpona study: [Orange Wayfarer's own Kolkata Bonedi Bari photo walk](https://www.orangewayfarer.com/bonedi-barir-durga-puja-of-kolkata-photo-walk/). Reference photographs are not redistributed. This remains stylised procedural art, not a photorealistic reconstruction. No browser/GPU was available for this revision; device frame rate and rendered appearance remain unverified. Automated checks use real Three.js geometry, navigation, crowd clearance, queue order, transactions, audio content and game simulation with a renderer stub.
+Courtyard and alpona study: [Orange Wayfarer's own Kolkata Bonedi Bari photo walk](https://www.orangewayfarer.com/bonedi-barir-durga-puja-of-kolkata-photo-walk/). Reference photographs are not redistributed. This remains stylised procedural art, not a photorealistic reconstruction. Earlier geometry-only checks were followed by muted browser replays recorded in `docs/qa/`. Physical-device frame rate remains unmeasured. Automated checks use real Three.js geometry, navigation, crowd clearance, queue order, transactions, audio content and game simulation with a renderer stub.
 
 ## Nearby conversations and a living street
 
