@@ -19,7 +19,7 @@ export function transitionPuja(state,action,context={}){
   if(s.mode==='dashami'&&s.phase==='playing'&&context.nearWomen)return {...s,phase:'applying',joined:true,elapsed:0};
  }
  if(action==='leave'){
-  if(s.mode==='navami'&&s.joined)return {...s,phase:'dancing',joined:false,elapsed:0};
+  if(s.mode==='navami')return {...s,phase:s.started?'dancing':'idle',joined:false,elapsed:0};
   if(s.mode==='dashami')return {...s,phase:s.started?'playing':'idle',joined:false,elapsed:0};
   return newPuja(s.mode);
  }

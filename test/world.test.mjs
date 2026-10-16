@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import {pathToFileURL} from 'node:url';
 import path from 'node:path';
 import {PujaRituals} from '../dist/puja-rituals.js';
+import * as THREE from '../dist/assets/three.module.js';
 
 const canvasContext=new Proxy({},{get:(o,k)=>o[k]??(()=>{}),set:(o,k,v)=>(o[k]=v,true)});
 globalThis.document={createElement:()=>({width:1024,height:256,getContext:()=>canvasContext}),createElementNS:()=>{const events={};return {width:1536,height:1024,addEventListener:(key,cb)=>events[key]=cb,removeEventListener(){},set src(v){queueMicrotask(()=>events.load?.());}};},fonts:{ready:Promise.resolve()}};
@@ -32,6 +33,62 @@ test('switching away while the priest gives flowers restores arati facing Maa',(
 test('real scene gives three flower bundles, chants three times and lands flowers near Maa',()=>{world.stop();world.hasEntered=true;world.camera.position.set(0,2.1,-15.1);world.yaw=world.pitch=0;puja.setMode('ashtami');assert(puja.action('start',true));assert.equal(puja.actors.filter(p=>p.active).length,5);for(let round=1;round<=3;round++){ritualUntil('ready');assert.equal(puja.state.round,round);assert(puja.handFlowers.visible);assert(puja.action('perform',true));assert(!puja.action('perform',true));ritualUntil(round===3?'complete':'receiving');}assert.equal(chantCount,3);assert.equal(puja.offerings.filter(g=>g.visible).length,3);assert(puja.offerings.every(g=>g.position.z<-21&&g.position.y>3.3&&g.position.y<3.7));assert(!puja.handRig.visible);puja.setMode('saptami');assert.equal(puja.hidden.size,0);assert(!world.people.some(p=>p.ritualHidden));});
 test('Navami dance proximity, third-person avatar, movement lock and leave all work',()=>{world.camera.position.set(-4.8,2.1,-6.2);puja.setMode('navami');assert(puja.action('start',true));assert.equal(puja.actors.filter(p=>p.active&&p.role==='dancer').length,5);world.camera.position.set(0,2,20);assert(!puja.action('perform',true));world.camera.position.set(0,2.1,-2.9);assert(puja.action('perform',true));assert.equal(world.renderCamera,puja.camera);assert(world.ritualLocked);world.setMoveInput(1,1);assert.deepEqual(world.moveInput,{right:0,forward:0});const player=puja.actors[11],before=player.body.rotation.z;for(let i=0;i<20;i++)world.frame(world.last+50);assert.notEqual(player.body.rotation.z,before);assert(player.bowls.every(b=>b.visible));puja.leave();assert(!world.ritualLocked);assert.equal(world.renderCamera,null);assert.equal(puja.state.phase,'dancing');});
 test('Dashami host, paired women, reciprocal colour and repeated mode cleanup are bounded',()=>{world.camera.position.set(-1.8,2.1,-14.9);puja.setMode('dashami');assert(puja.idolSindoor.visible);assert.equal(puja.actors.filter(p=>p.active).length,1);assert(puja.action('start',true));assert.equal(puja.actors.filter(p=>p.active).length,6);assert(puja.action('perform',true));ritualUntil('playing');assert.equal(puja.state.applied,1);assert(puja.actors.filter(p=>p.active).every(p=>p.marks.visible));world.camera.position.set(0,2,20);assert(!puja.action('perform',true));const people=world.people.length,children=world.scene.children.length;for(let i=0;i<4;i++)for(const mode of ['ashtami','navami','dashami','saptami'])puja.setMode(mode);assert.equal(world.people.length,people);assert.equal(world.scene.children.length,children);assert.equal(puja.hidden.size,0);assert.equal(world.renderCamera,null);assert(!puja.idolSindoor.visible);world.stop();});
+
+test('inactive ritual pools submit zero instances and active pools omit hidden props',()=>{
+ puja.setMode('saptami');assert(puja.batches.every(m=>m.count===0&&!m.visible));
+ puja.setMode('ashtami');assert(puja.batches.every(m=>m.count===0&&!m.visible));
+ world.camera.position.set(-4.8,2.1,-6.2);puja.setMode('navami');puja.action('start',true);puja.update(.05,1);puja.flush();
+ const submitted=puja.batches.reduce((n,m)=>n+m.count,0),capacity=puja.batches.reduce((n,m)=>n+m.instanceMatrix.count,0);
+ assert(submitted>0&&submitted<capacity);assert(puja.batches.some(m=>!m.visible));
+ puja.setMode('saptami');assert(puja.batches.every(m=>m.count===0&&!m.visible));
+});
+test('each woman can touch her paired neighbour at cheek height',()=>{
+ world.camera.position.set(-1.8,2.1,-14.9);puja.setMode('dashami');puja.action('start',true);
+ const pairs=[[0,5],[1,2],[3,4]],minimum=Array(6).fill(Infinity);let sample=0;
+ for(let t=0;t<12;t+=.05){puja.update(.05,t);sample=0;for(const pair of pairs)for(const [member,index] of pair.entries()){
+  const palm=puja.actors[index].armPose.arms[0].palm.getWorldPosition(new THREE.Vector3());
+  const cheek=puja.actors[pair[1-member]].marks.children[1].getWorldPosition(new THREE.Vector3());
+  minimum[sample]=Math.min(minimum[sample],palm.distanceTo(cheek));sample++;
+ }}
+ assert(minimum.every(distance=>distance<.04),JSON.stringify(minimum));
+ const actor=puja.actors[0];puja.setMode('saptami');for(const arm of actor.armPose.arms)for(const rest of arm.rest){assert(rest.object.position.equals(rest.position));assert(rest.object.quaternion.equals(rest.quaternion));assert(rest.object.scale.equals(rest.scale));}
+});
+test('reciprocal sindoor reaches the viewer and her cheek, and walking cancels contact',()=>{
+ world.camera.position.set(-1.8,2.1,-14.9);world.camera.rotation.set(0,0,0);puja.setMode('dashami');puja.action('start',true);puja.action('perform',true);
+ const visitor=puja.sindoorVisitor;for(let i=0;i<18;i++)puja.update(.05,i*.05);
+ assert.equal(puja.state.phase,'applying');assert(Math.abs(visitor.g.position.distanceTo(new THREE.Vector3(world.camera.position.x,.4,world.camera.position.z))-.70)<.01);
+ const palm=visitor.armPose.arms[0].palm.getWorldPosition(new THREE.Vector3());assert(Math.abs(palm.y-(world.camera.position.y-.04))<.01);assert(palm.distanceTo(world.camera.position)<.15);
+ const yourPalm=puja.hands[1].children[0].getWorldPosition(new THREE.Vector3()),cheek=visitor.marks.children[1].getWorldPosition(new THREE.Vector3());assert(yourPalm.distanceTo(cheek)<.01);
+ world.camera.position.x+=.2;puja.update(.05,1);assert.equal(puja.state.phase,'playing');assert.equal(puja.state.applied,0);assert(visitor.g.position.equals(visitor.home));puja.setMode('saptami');
+});
+test('sindoor approach and return keep neighbouring skirts clear without losing cheek contact',()=>{
+ const positions=[[-3,-15.2],[-3.05,-15.1],[-1.45,-16.4],[-4.4,-16],[2,-14.2],[3.4,-15],[0,-15.5],[-1.8,-14.9]];
+ for(const [x,z] of positions){
+  puja.setMode('dashami');world.camera.position.set(...puja.target().position);assert(puja.action('start',true));puja.update(0,0);
+  world.camera.position.set(x,2.1,z);world.camera.rotation.set(.4,.25,0,'YXZ');assert(puja.action('perform',true),`${x},${z} must have a safe approach`);
+  const visitor=puja.sindoorVisitor,women=puja.actors.filter(p=>p.active);
+  for(let frame=0;frame<40;frame++){
+   puja.update(.05,frame*.05);
+   for(let i=0;i<women.length;i++)for(let j=0;j<i;j++)assert(Math.hypot(women[i].g.position.x-women[j].g.position.x,women[i].g.position.z-women[j].g.position.z)>=.68-1e-8,`${x},${z}: approach must clear skirts`);
+   if(frame===17){
+    assert.equal(puja.state.phase,'applying');
+    const palm=visitor.armPose.arms[0].palm.getWorldPosition(new THREE.Vector3());assert(palm.distanceTo(world.camera.position)<.15);
+    const yourPalm=puja.hands[1].children[0].getWorldPosition(new THREE.Vector3()),cheek=visitor.marks.children[1].getWorldPosition(new THREE.Vector3());assert(yourPalm.distanceTo(cheek)<.01);
+   }
+  }
+  assert.equal(puja.state.applied,1);assert(visitor.g.position.equals(visitor.home));
+  assert(puja.action('perform',true));puja.update(.05,3);world.camera.position.x+=.06;puja.update(.05,3.05);assert.equal(puja.state.phase,'playing');assert.equal(puja.state.applied,1);assert(visitor.g.position.equals(visitor.home));
+ }
+ puja.setMode('saptami');
+});
+test('receiving flowers start at the priest palm after his receiving pose is applied',()=>{
+ world.camera.position.set(0,2.1,-15.1);puja.setMode('ashtami');puja.action('start',true);ritualUntil('receiving');
+ const palm=puja.priestPalm.getWorldPosition(new THREE.Vector3());assert(palm.distanceTo(puja.flightStart)<.05);assert(puja.flight.position.distanceTo(puja.flightStart)<.01);puja.setMode('saptami');
+});
+test('reduced-motion dance arms, smoke and paired sindoor poses remain static',()=>{
+ const snapshot=()=>puja.actors.filter(p=>p.active).flatMap(p=>[...p.g.position.toArray(),...p.body.position.toArray(),...p.body.rotation.toArray(),...p.arms.flatMap(a=>[...a.rotation.toArray(),...a.children.flatMap(c=>[...c.position.toArray(),...c.quaternion.toArray()])]),...p.bowls.flatMap(b=>b.smoke.flatMap(p=>[...p.position.toArray(),...p.scale.toArray()]))]);
+ world.reduced=true;try{for(const mode of ['navami','dashami']){puja.setMode(mode);world.camera.position.set(...puja.target().position);puja.action('start',true);puja.update(.05,1);const before=snapshot();puja.update(.05,9);assert.deepEqual(snapshot(),before);}}finally{world.reduced=false;puja.setMode('saptami');}
+});
 
 test('camera tour arrives at destination and cancellation releases pending navigation',async()=>{
  world.hasEntered=true;const movement=world.go([0,2,-6],[0,3,-20]);let now=world.last;for(let i=0;i<180;i++){now+=50;world.frame(now);}await movement;assert(world.camera.position.distanceTo({x:0,y:2,z:-6})<.03);

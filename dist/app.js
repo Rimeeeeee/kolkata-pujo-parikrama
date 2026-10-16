@@ -33,7 +33,7 @@ function updateJourney(){
  $('journey-title').textContent=title;$('journey-copy').textContent=copy;$('next-moment').innerHTML=`${button} <span>→</span>`;
 }
 function stopVoice(){if(voiceAudio){voiceAudio.pause();voiceAudio=null;}window.speechSynthesis?.cancel();$('dhak-audio').volume=.48;}
-function stopChorus(){$('ritual-chorus').pause();$('ritual-chorus').currentTime=0;}
+function stopChorus(){$('ritual-chorus').pause();$('ritual-chorus').currentTime=0;$('dhak-audio').volume=.48;}
 function chant(){if(!state.sound)return;stopVoice();const audio=$('ritual-chorus');audio.currentTime=0;audio.volume=.8;$('dhak-audio').volume=.16;audio.onended=()=>{$('dhak-audio').volume=.48;};audio.play().catch(()=>{$('dhak-audio').volume=.48;});}
 async function sound(on){
  state.sound=on;const audio=$('dhak-audio');audio.volume=.48;
