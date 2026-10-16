@@ -12,7 +12,8 @@ export const PLACES = [
  {id:'flowers',number:'11',title:'Phuler jhuri for Maa',bn:'বেলাদির ফুল',description:'Choose a small, medium or big basket of Puja flowers.',position:[8.05,1.9,7.5],look:[10.55,2.1,7]},
  {id:'portrait',number:'12',title:'Dress up & pose',bn:'পুজোর সাজে ছবি',description:'Sari or dhoti kurta, a pose, and the pandal behind you.',position:[0,1.9,17],look:[0,1.65,14.5]},
  {id:'neighbour',number:'13',title:'Hello, Madhumita-di',bn:'শুভ শারদীয়া',description:'A warm Puja greeting from a familiar face.',position:[-1.5,1.9,18.4],look:[-3.2,1.8,17.8]},
- {id:'neighbour-male',number:'14',title:'Hello, Anirban-da',bn:'নমস্কার',description:'Stop for a namaskar and a Shubho Sharodiya.',position:[-4.1,1.9,20.1],look:[-4,1.8,18.3]}
+ {id:'neighbour-male',number:'14',title:'Hello, Anirban-da',bn:'নমস্কার',description:'Stop for a namaskar and a Shubho Sharodiya.',position:[-4.1,1.9,20.1],look:[-4,1.8,18.3]},
+ {id:'alpona',number:'15',title:'Paint your own alpona',bn:'আলপনা আঁকি',description:'Choose motifs and colours, paint the lane, and keep a pandal postcard.',position:[-3.8,1.9,9.3],look:[-3.8,.1,7]}
 ];
 export function canEnter(x,z,hasEntered){return hasEntered || !(z<1 && Math.abs(x)<10.5);}
 export function constrainWalk(x,z,hasEntered){

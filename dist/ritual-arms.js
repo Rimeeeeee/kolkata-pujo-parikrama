@@ -7,8 +7,9 @@ const EPSILON=1e-8;
 
 // Pose the existing meshes; their geometry and instance references stay unchanged.
 export class RitualArms{
- constructor(person){
+ constructor(person,{elbowPole=[.6,-.3,.25]}={}){
   this.person=person;
+  this.elbowPole=new THREE.Vector3(...elbowPole);
   this.arms=person.arms.map((group,index)=>{
    const [shoulder,upper,elbow,forearm,palm,thumb]=group.children;
    if(!shoulder||!upper?.isMesh||!elbow||!forearm?.isMesh||palm?.name!=='human-hand'||!thumb)throw new Error('RitualArms needs the existing human arm rig');
@@ -30,7 +31,7 @@ export class RitualArms{
   if(!Number.isFinite(distance)||distance>REACH+EPSILON){this.restoreArm(arm);return false;}
   group.rotation.set(0,0,0);
   this.direction.copy(this.target);if(distance>EPSILON)this.direction.divideScalar(distance);else this.direction.set(0,0,1);
-  this.pole.set(arm.side*.6,-.3,.25).addScaledVector(this.direction,-this.pole.dot(this.direction));
+  this.pole.set(arm.side*this.elbowPole.x,this.elbowPole.y,this.elbowPole.z).addScaledVector(this.direction,-this.pole.dot(this.direction));
   if(this.pole.lengthSq()<EPSILON){this.pole.set(0,-1,0).addScaledVector(this.direction,this.direction.y);if(this.pole.lengthSq()<EPSILON)this.pole.set(1,0,0);}
   this.pole.normalize();
   const along=distance*.5,height=Math.sqrt(Math.max(0,SEGMENT*SEGMENT-along*along));

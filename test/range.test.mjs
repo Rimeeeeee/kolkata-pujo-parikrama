@@ -21,3 +21,12 @@ test('range shortcuts preserve button and link activation while the focused canv
  const space=event(' ');keyboardRange.keyHandler(space);assert(space.defaultPrevented);assert.equal(keyboardRange.round.shots,10);
  const arrow=event('ArrowLeft');keyboardRange.keyHandler(arrow);assert(arrow.defaultPrevented);assert(keyboardRange.aim.x<0);keyboardRange.stop();
 });
+
+test('an orientation pause freezes the round and in-flight cork, then resumes without resetting',()=>{
+ const game=new BalloonRange(canvas);game.start();assert(game.fire());game.frame(game.last+50);
+ const cork=game.corks[0],position=cork.position.clone(),velocity=cork.velocity.clone(),round=game.round,clock=game.clock,motion=game.motion,life=cork.life,cooldown=game.cooldown;
+ game.setPaused(true);for(let i=0;i<340;i++)game.frame(game.last+50);
+ assert(game.active&&game.paused);assert.equal(game.round,round);assert.equal(game.clock,clock);assert.equal(game.motion,motion);assert.equal(game.cooldown,cooldown);assert.equal(game.corks[0],cork);assert.equal(cork.life,life);assert(cork.position.equals(position));assert(cork.velocity.equals(velocity));assert(!game.fire());
+ const aim=game.aim.clone();game.keyHandler({key:'ArrowLeft',target:{},preventDefault(){assert.fail('A paused game must ignore gameplay keys');}});assert(game.aim.equals(aim));
+ game.setPaused(false);game.frame(game.last+50);assert(Math.abs(game.clock-clock-.05)<1e-9);assert.equal(game.round.shots,11);assert.equal(game.corks[0],cork);assert(cork.life>life);game.stop();
+});

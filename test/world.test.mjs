@@ -4,6 +4,8 @@ import fs from 'node:fs/promises';
 import {pathToFileURL} from 'node:url';
 import path from 'node:path';
 import {PujaRituals} from '../dist/puja-rituals.js';
+import {clearSegment} from '../dist/movement.js';
+import {updatePeople} from '../dist/scene-life.js';
 import * as THREE from '../dist/assets/three.module.js';
 
 const canvasContext=new Proxy({},{get:(o,k)=>o[k]??(()=>{}),set:(o,k,v)=>(o[k]=v,true)});
@@ -11,16 +13,44 @@ globalThis.document={createElement:()=>({width:1024,height:256,getContext:()=>ca
 Object.assign(globalThis,{innerWidth:1440,innerHeight:900,devicePixelRatio:1,matchMedia:()=>({matches:false}),addEventListener(){},requestAnimationFrame(){}});
 globalThis.MockRenderer=class{setPixelRatio(){}setSize(){}render(scene,camera){scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);assert(scene.children.length>100);assert(camera.isPerspectiveCamera);} };
 const source=(await fs.readFile(new URL('../dist/world.js',import.meta.url),'utf8'))
- .replace("'./assets/three.module.js'",JSON.stringify(pathToFileURL(path.resolve('dist/assets/three.module.js')).href))
- .replace("'./game-state.js'",JSON.stringify(pathToFileURL(path.resolve('dist/game-state.js')).href))
- .replace("'./movement.js'",JSON.stringify(pathToFileURL(path.resolve('dist/movement.js')).href))
- .replace("'./scene-life.js'",JSON.stringify(pathToFileURL(path.resolve('dist/scene-life.js')).href))
- .replace("'./pujo-additions.js'",JSON.stringify(pathToFileURL(path.resolve('dist/pujo-additions.js')).href))
- .replace("'./photo-booth.js'",JSON.stringify(pathToFileURL(path.resolve('dist/photo-booth.js')).href))
- .replace("'./alpona.js'",JSON.stringify(pathToFileURL(path.resolve('dist/alpona.js')).href))
+ .replace(/from '(\.\/[^']+)'/g,(_,url)=>'from '+JSON.stringify(pathToFileURL(path.resolve('dist',url)).href))
  .replace('new THREE.WebGLRenderer(','new globalThis.MockRenderer(');
  const {PujoWorld}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 let world,puja,chantCount=0;
+
+test('photo visitors hold their phone with bent elbows and put it away during a greeting',()=>{
+ const w=new PujoWorld({addEventListener(){},setPointerCapture(){}},{onReady(){}}),photos=w.people.filter(p=>p.pose==='photo');
+ const checkGrip=p=>{for(const arm of p.photoArms.arms){
+  const palm=arm.palm.getWorldPosition(new THREE.Vector3()),elbow=arm.elbow.getWorldPosition(new THREE.Vector3());
+  const localPalm=p.body.worldToLocal(palm.clone());p.body.worldToLocal(elbow);
+  assert(elbow.y<localPalm.y-.20,'Elbow stays below the phone instead of pointing straight forward');
+  assert(Math.abs(elbow.x)<.36,'Elbows stay close to the torso instead of a sideways T pose');
+  p.phone.worldToLocal(palm);assert(Math.abs(Math.abs(palm.x)-.155)<1e-8);assert(Math.abs(palm.y+.01)<1e-8);assert(Math.abs(palm.z)<1e-8);
+ }};
+ assert(photos.length>2);photos.forEach(checkGrip);
+ for(let i=0;i<120;i++){updatePeople(w,.05);photos.forEach(checkGrip);}
+ const riya=w.characters.get('photographer');w.greet('photographer');updatePeople(w,.05);assert(!riya.phone.visible);assert(riya.arms.every(a=>!a.visible));
+ for(let i=0;i<100;i++)updatePeople(w,.05);assert(riya.phone.visible);assert(riya.arms.every(a=>a.visible));checkGrip(riya);
+});
+
+test('courtyard visitors wander with pauses, avoid people and leave the central aisle clear',()=>{
+ const w=new PujoWorld({addEventListener(){},setPointerCapture(){}},{onReady(){}});w.started=true;w.camera.position.set(0,2.1,-5);
+ const walkers=w.people.filter(p=>p.courtyardWalker),starts=walkers.map(p=>p.g.position.clone()),travel=walkers.map(()=>0);let steps=false,pauses=false;
+ assert(walkers.length>=6);assert(walkers.every(p=>p.pose==='idle'&&!p.characterId&&p.queueId===undefined));
+ for(let frame=0;frame<800;frame++){
+  updatePeople(w,.05);
+  for(const [i,p] of walkers.entries()){
+   travel[i]=Math.max(travel[i],p.g.position.distanceTo(starts[i]));steps||=p.walking;pauses||=!p.walking;
+   assert(clearSegment(p.g.position,p.g.position,w.obstacles(p),p.radius),'Wandering must clear other visitors and solid props');
+   assert(Math.hypot(p.g.position.x-w.camera.position.x,p.g.position.z-w.camera.position.z)>p.radius+.36);
+   assert(Math.abs(p.g.position.x)>1.7&&Math.abs(p.g.position.x)<7.5&&p.g.position.z<-1.5);
+  }
+ }
+ assert(travel.filter(d=>d>.35).length>=6,JSON.stringify(travel));assert(steps&&pauses);
+ w.reduced=true;const stopped=walkers.map(p=>p.g.position.clone());for(let i=0;i<80;i++)updatePeople(w,.05);walkers.forEach((p,i)=>assert(p.g.position.equals(stopped[i])));
+ w.reduced=false;const rituals=w.rituals=new PujaRituals(w);w.hasEntered=true;w.camera.position.set(0,2.1,-15.1);rituals.setMode('ashtami');assert(rituals.action('start',true));
+ const staging=walkers.map(p=>p.g.position.clone());for(let i=0;i<80;i++)updatePeople(w,.05);walkers.forEach((p,i)=>assert(p.g.position.equals(staging[i])));
+});
 test('entire scene builds with real Three.js geometry and all crowd roles',async()=>{
  let ready=false;const canvas={addEventListener(){},setPointerCapture(){}};
  world=new PujoWorld(canvas,{onReady:()=>ready=true,onFail:()=>assert.fail('Scene initialization failed')});
@@ -111,9 +141,9 @@ test('six distinct physical stalls include all the requested Kolkata market corn
 test('the overhead jharbati stays above Maa’s face and the central sight line',async()=>{const THREE=await import('../dist/assets/three.module.js');const box=new THREE.Box3().setFromObject(world.chandelier);assert(box.min.y>7.3);assert.equal(world.chandelier.name,'overhead-jharbati');for(const z of [20,2,-7,-16]){const origin=new THREE.Vector3(0,2,z),face=new THREE.Vector3(0,6.45,-21.25),ray=new THREE.Ray(origin,face.clone().sub(origin).normalize());assert.equal(ray.intersectBox(box,new THREE.Vector3()),null);}});
 test('the chosen balloon follows the camera, changes colour, fits on phones, and releases',async()=>{const THREE=await import('../dist/assets/three.module.js');world.setCompanionBalloon('#1267bd');const first=world.companionBalloon;assert.equal(first.parent,world.camera);assert.equal(first.children[0].material.color.getHexString(),'1267bd');world.setCompanionBalloon('#edba48');assert.equal(first.parent,null);assert.equal(world.camera.children.filter(c=>c.name==='your-balloon').length,1);world.camera.aspect=.5;world.camera.updateProjectionMatrix();world.frame(performance.now());const p=world.companionBalloon.getWorldPosition(new THREE.Vector3()).project(world.camera);assert(Math.abs(p.x)<.9);world.setCompanionBalloon(null);assert.equal(world.companionBalloon,null);});
 
-test('queue figures advance ahead of the player and entry finishes behind the same neighbour',async()=>{world.camera.position.set(4.7,1.9,15.65);world.hasEntered=false;const first=world.queuePeople.at(-1);let count=9;const pending=world.joinQueue(s=>{assert(s.ahead<=count);count=s.ahead;assert.equal(first,world.queuePeople.at(-1));assert(first.g.position.distanceTo(world.camera.position)>.65);});let now=performance.now();for(let i=0;i<650;i++){now+=50;world.frame(now);}await pending;assert(world.hasEntered);assert(!world.locked);assert.equal(count,0);});
+test('queue figures advance ahead of the player and entry finishes behind the same neighbour',async()=>{world.camera.position.set(4.7,1.9,15.65);world.hasEntered=false;const first=world.queuePeople.at(-1);let count=9,observedSteps=false;const pending=world.joinQueue(s=>{observedSteps||=world.queuePeople.some(p=>p.legs.some(l=>Math.abs(l.rotation.x)>.1));assert(s.ahead<=count);count=s.ahead;assert.equal(first,world.queuePeople.at(-1));assert(first.g.position.distanceTo(world.camera.position)>.65);});let now=performance.now();for(let i=0;i<650;i++){now+=50;world.frame(now);}await pending;assert(world.hasEntered);assert(!world.locked);assert.equal(count,0);assert(observedSteps);});
 test('stall vendors are raised above lowered counters and decoration detail uses reusable textures',()=>{assert.equal(world.vendorPeople.size,6);for(const p of world.vendorPeople.values())assert(p.g.position.y+1.87>2);assert.equal(world.alponas[0].geometry.parameters.width,6.4);const windows=[];world.scene.traverse(o=>{if(o.name==='khorkhori-window')windows.push(o);});assert.equal(windows.length,8);assert(world.people.filter(p=>p.batched).length>=35);});
-test('all guided destinations remain reachable around the expanded crowd',async()=>{const {PLACES}=await import('../dist/game-state.js');world.queueRun=null;world.hasEntered=true;world.camera.position.set(0,2,-5);for(const p of PLACES){const pending=world.go(p.position,p.look);assert(world.target,`${p.id} must have a safe route`);let now=world.last;for(let i=0;i<800&&world.target;i++){now+=50;world.frame(now);for(const o of world.obstacles())assert(Math.hypot(world.camera.position.x-o.x,world.camera.position.z-o.z)>=.32+o.radius+.014,'guided movement must not overlap people');}assert(!world.target,`${p.id} must arrive`);await pending;assert(Math.hypot(world.camera.position.x-p.position[0],world.camera.position.z-p.position[2])<1.9);const id=p.id==='balloons'?'game':p.id,a=world.characterPosition(id);if(a)assert(Math.hypot(world.camera.position.x-a[0],world.camera.position.z-a[2])<=2.65,`${id} seller must be within reach after guided arrival`);}});
+test('all guided destinations remain reachable around the expanded crowd',async()=>{const {PLACES}=await import('../dist/game-state.js');world.queueRun=null;world.hasEntered=true;world.camera.position.set(0,2,-5);for(const p of PLACES){const pending=world.go(p.position,p.look);assert(world.target,`${p.id} must have a safe route`);let now=world.last;for(let i=0;i<800&&world.target;i++){now+=50;world.frame(now);assert(clearSegment(world.camera.position,world.camera.position,world.obstacles()),'guided movement must not overlap people or counters');}assert(!world.target,`${p.id} must arrive`);await pending;assert(Math.hypot(world.camera.position.x-p.position[0],world.camera.position.z-p.position[2])<1.9);const id=p.id==='balloons'?'game':p.id,a=world.characterPosition(id);if(a)assert(Math.hypot(world.camera.position.x-a[0],world.camera.position.z-a[2])<=2.65,`${id} seller must be within reach after guided arrival`);}});
 
 test('greeting joins both palms, bows the head and releases the gesture afterwards',()=>{const p=world.characters.get('neighbour');world.greet('neighbour');let now=world.last;for(let i=0;i<20;i++){now+=50;world.frame(now);}assert(p.gesture.visible);assert(p.head.rotation.x>.08);assert(p.palms[0].position.distanceTo(p.palms[1].position)<.07);assert(p.arms.every(a=>!a.visible));for(let i=0;i<100;i++){now+=50;world.frame(now);}assert(!p.gesture.visible);assert(p.arms.every(a=>a.visible));world.conversationId=null;});
 test('crowd rigs breathe, look around and walk without overlapping the player',()=>{world.started=true;world.camera.position.set(0,2,20);const p=world.people.find(p=>p.walkPoints);p.walkWait=0;p.walkIndex=1;const before=p.g.position.clone(),head=p.head.rotation.y;let now=world.last;for(let i=0;i<40;i++){now+=50;world.frame(now);}assert(p.g.position.distanceTo(before)>.05);assert.notEqual(p.head.rotation.y,head);assert(p.instances.length>5);assert(Math.hypot(p.g.position.x-world.camera.position.x,p.g.position.z-world.camera.position.z)>.65);});
@@ -122,4 +152,130 @@ test('full altar image fits beneath the canopy and fireworks use one fixed parti
 
 test('the priest never greets or turns away from Maa; Arjun stays ahead of the line',()=>{assert(world.volunteer.g.position.z<world.queuePeople[0].home.z);world.conversationId=null;world.greet('priest');assert.equal(world.conversationId,null);let now=world.last;for(let i=0;i<120;i++){now+=50;world.frame(now);}const p=world.priest,dx=-p.g.position.x,dz=-21.25-p.g.position.z;assert((Math.sin(p.g.rotation.y)*dx+Math.cos(p.g.rotation.y)*dz)/Math.hypot(dx,dz)>.99);assert(p.nonInteractable);assert(!p.gesture);});
 test('additions reuse floor art and keep non-interactive performers separate',()=>{assert.equal(world.extraDhakis.length,2);assert(world.extraDhakis.every(p=>p.nonInteractable&&p.pose==='dhak'));assert(world.conchPerson.nonInteractable);assert(world.addedAlponas.length>=60);assert.equal(world.alponaBatches.length,6);assert.equal(world.alponaBatches.reduce((n,m)=>n+m.count,0),world.alponas.length+world.addedAlponas.length);assert.equal(new Set(world.addedAlponas.map(m=>m.material)).size,6);assert(world.addedAlponas.some(m=>m.position.z<0));for(const m of world.addedAlponas){assert.equal(m.geometry,world.alponas[0].geometry);assert(world.alponaPalette.includes(m.material));assert.equal(m.material.toneMapped,false);assert.equal(m.position.y,m.position.z<0?.408:.035);}for(const p of [...world.extraDhakis,world.conchPerson])for(const other of world.people.filter(o=>o!==p))assert(Math.hypot(p.g.position.x-other.g.position.x,p.g.position.z-other.g.position.z)>p.radius+other.radius);});
-test('portrait framing keeps the pandal and avatar; wave points away from the face',async()=>{const THREE=await import('../dist/assets/three.module.js');const {setPortrait}=await import('../dist/photo-booth.js');world.scene.updateMatrixWorld(true);for(const x of [-10.8,10.8])for(const y of [.2,11.9]){const p=new THREE.Vector3(x,y,0).project(world.portraitCamera);assert(Math.abs(p.x)<.96&&Math.abs(p.y)<.96);}const count=world.people.length;for(const outfit of ['sari','dhoti'])for(const pose of ['namaskar','wave','relaxed']){const p=setPortrait(world,{outfit,pose});assert.equal(world.people.length,count);assert(!p.g.visible);if(pose==='wave'){p.g.updateMatrixWorld(true);const hand=p.arms[1].children.at(-1).getWorldPosition(new THREE.Vector3());assert(hand.x>.32);}}});
+test('portrait framing keeps the pandal and avatar; wave points away from the face',async()=>{const THREE=await import('../dist/assets/three.module.js');const {setPortrait}=await import('../dist/photo-booth.js');world.scene.updateMatrixWorld(true);for(const x of [-10.8,10.8])for(const y of [.2,11.9]){const p=new THREE.Vector3(x,y,0).project(world.portraitCamera);assert(Math.abs(p.x)<.96&&Math.abs(p.y)<.96);}const count=world.people.length;for(const outfit of ['sari','dhoti'])for(const pose of ['namaskar','wave','relaxed']){const p=setPortrait(world,{outfit,pose});assert.equal(world.people.length,count);assert(!p.g.visible);if(pose==='wave'){p.g.updateMatrixWorld(true);const hand=p.arms[1].getObjectByName('human-hand').getWorldPosition(new THREE.Vector3());assert(hand.x>.32);}}});
+
+// Functional checks for the independent models and street-life branch.
+test('every street visitor uses the human rig; crowd variation shares silhouette geometry',()=>{
+ assert(world.people.every(p=>p.human&&p.head&&p.legs.length===2));
+ const crowd=world.people.filter(p=>p.batched);assert(new Set(crowd.map(p=>p.skin)).size>=3);assert(crowd.some(p=>p.age==='elder'));assert(new Set(crowd.map(p=>p.g.scale.y)).size>=4);
+ const hands=world.people.flatMap(p=>p.arms.map(a=>a.getObjectByName('human-hand')));assert(hands.every(Boolean));
+ assert.equal(new Set(hands.flatMap(h=>h.children.filter(o=>o.geometry===world.geometries.fingers).map(o=>o.geometry))).size,1);
+});
+test('vendor hands over a real serving, keeps it visible while walking, and reuses bounded models',async()=>{
+ const {STALL_MENUS}=await import('../dist/neighbourhood.js');puja.setMode('saptami');world.started=true;world.locked=false;world.target=null;
+ for(const [shop,menu] of Object.entries(STALL_MENUS))for(const item of menu.items){
+  const v=world.vendorPeople.get(shop);world.camera.position.set(v.g.position.x+(v.g.position.x<0?2:-2),1.9,v.g.position.z);world.camera.updateMatrixWorld();
+  assert(world.presentPurchase(shop,item));world.frame(world.last+50);assert(world.purchase.vendor.armPose.arms[1].posed);
+  const prop=world.purchase.prop,hand=v.arms[1].getObjectByName('human-hand').getWorldPosition(new THREE.Vector3());assert(prop.position.distanceTo(hand)<.06);
+  for(let i=0;i<42;i++)world.frame(world.last+50);assert(prop.servingHand.visible);assert(!v.armPose.arms[1].posed);
+  const local=world.camera.worldToLocal(prop.position.clone());assert(local.z<-.7&&local.z>-.9);assert(local.y<-.35);
+ }
+ assert(world.servingModels.size<=7);const count=world.servingModels.size;world.camera.position.set(-8.55,1.9,10);assert(world.presentPurchase('tea',STALL_MENUS.tea.items[0]));assert.equal(world.servingModels.size,count);
+ world.camera.position.set(0,1.9,26);assert(!world.presentPurchase('tea',STALL_MENUS.tea.items[0]));assert(!world.presentPurchase('tea',{id:'unknown'}));world.putAwayPurchase();assert(!world.purchase);assert([...world.servingModels.values()].every(p=>!p.parent));
+});
+test('painting replaces one reusable floor texture and its camera frames the art and pandal',async()=>{
+ const {addMotif,ART_SPOT}=await import('../dist/alpona-corner.js');const stamps=[];addMotif(stamps);assert(world.obstacles().some(o=>o.x===-6.3&&o.z===5.5&&o.radius>=.7));const material=world.personalAlpona.material,geometry=world.personalAlpona.geometry,texture=material.map;
+ for(let i=0;i<12;i++)assert(world.applyAlpona(stamps));assert.equal(world.personalAlpona.material,material);assert.equal(material.map,texture);assert.equal(world.personalAlpona.geometry,geometry);assert.equal(world.artStamps.length,1);assert(!world.applyAlpona([{design:'bad'}]));
+ world.artCamera.updateMatrixWorld();for(const v of [...[-1.7,1.7].flatMap(x=>[-1.7,1.7].map(z=>new THREE.Vector3(ART_SPOT.x+x,.06,ART_SPOT.z+z))),...[-10.8,10.8].flatMap(x=>[.2,11.9].map(y=>new THREE.Vector3(x,y,0))),new THREE.Vector3(0,6,-21)]){v.project(world.artCamera);assert(Math.abs(v.x)<1&&Math.abs(v.y)<1&&v.z>0&&v.z<1);}
+});
+test('new held servings respect ritual cameras and reduced-motion poses',async()=>{
+ const {STALL_MENUS}=await import('../dist/neighbourhood.js');world.camera.position.set(-8.55,1.9,10);world.reduced=true;assert(world.presentPurchase('tea',STALL_MENUS.tea.items[0]));world.frame(world.last+50);const prop=world.purchase.prop,position=prop.position.clone();world.frame(world.last+50);assert(prop.position.equals(position));assert(!world.purchase.vendor.armPose.arms[1].posed);world.renderCamera=world.artCamera;world.frame(world.last+50);assert(!prop.visible);world.renderCamera=null;world.ritualLocked=true;world.frame(world.last+50);assert(!prop.visible);world.ritualLocked=false;world.putAwayPurchase();world.reduced=false;
+});
+
+test('distant visitors omit fine details, hidden visitors submit no instances, and soles stay planted',()=>{
+ puja.setMode('saptami');world.camera.position.set(0,2,20);world.frame(world.last+50);const near=world.visitorBatches.reduce((n,m)=>n+m.count,0);world.camera.position.set(0,2,90);world.frame(world.last+50);const far=world.visitorBatches.reduce((n,m)=>n+m.count,0);assert(far<near);
+ const crowd=world.people.filter(p=>p.batched);crowd.forEach(p=>p.ritualHidden=true);world.frame(world.last+50);assert(world.visitorBatches.every(m=>m.count===0&&!m.visible));crowd.forEach(p=>p.ritualHidden=false);world.frame(world.last+50);
+ const p=world.people.find(p=>p.walkPoints);world.camera.position.set(0,2,20);for(let i=0;i<40;i++){world.frame(world.last+50);p.g.updateWorldMatrix(true,true);for(const leg of p.legs){const bounds=new THREE.Box3().setFromObject(leg);assert(bounds.min.y>=p.g.position.y-.015,'A swinging sandal must stay above the paving');}}
+});
+test('drumsticks stay in the palms and arati dish stays supported throughout animation',()=>{
+ puja.setMode('saptami');world.reduced=false;world.putAwayPurchase();const dhaki=world.characters.get('dhaki');
+ for(let frame=0;frame<200;frame++){
+  world.frame(world.last+50);
+  for(let i=0;i<2;i++){
+   const palm=dhaki.arms[i].getObjectByName('human-hand').getWorldPosition(new THREE.Vector3()),stick=dhaki.sticks[i];
+   const a=stick.localToWorld(new THREE.Vector3(0,-.5,0)),b=stick.localToWorld(new THREE.Vector3(0,.5,0)),direction=b.clone().sub(a);
+   const k=THREE.MathUtils.clamp(palm.clone().sub(a).dot(direction)/direction.lengthSq(),0,1);assert(palm.distanceTo(a.addScaledVector(direction,k))<.015);
+  }
+  const palm=world.priest.arms[1].getObjectByName('human-hand').getWorldPosition(new THREE.Vector3());world.priestLamp.worldToLocal(palm);
+  const gap=Math.hypot(Math.max(0,Math.hypot(palm.x,palm.z)-.25),Math.max(0,Math.abs(palm.y)-.025));assert(gap<.025);
+ }
+ puja.setMode('ashtami');world.frame(world.last+50);assert(!world.priest.armPose.arms[1].posed);
+ for(const rest of world.priest.armPose.arms[1].rest){assert(rest.object.position.equals(rest.position));assert(rest.object.scale.equals(rest.scale));}
+ puja.setMode('saptami');
+});
+test('basket size changes its contents while the same player hand keeps its size',async()=>{
+ const {STALL_MENUS}=await import('../dist/neighbourhood.js');puja.setMode('saptami');world.reduced=true;world.camera.position.set(8.55,1.9,7);world.camera.updateMatrixWorld();const sizes=[];
+ for(const id of ['jhuri-small','jhuri-large']){
+  assert(world.presentPurchase('flowers',STALL_MENUS.flowers.items.find(i=>i.id===id)));world.frame(world.last+50);
+  const prop=world.purchase.prop;sizes.push({hand:new THREE.Box3().setFromObject(prop.servingHand).getSize(new THREE.Vector3()),basket:new THREE.Box3().setFromObject(prop.contents).getSize(new THREE.Vector3())});
+ }
+ assert(sizes[0].hand.distanceTo(sizes[1].hand)<1e-8);assert(Math.abs(sizes[1].basket.x/sizes[0].basket.x-1.6)<1e-8);world.putAwayPurchase();world.reduced=false;
+});
+test('carried servings yield to Anjali and sindoor hands and return afterwards',async()=>{
+ const {STALL_MENUS}=await import('../dist/neighbourhood.js');puja.setMode('saptami');world.camera.position.set(8.55,1.9,7);world.camera.updateMatrixWorld();assert(world.presentPurchase('flowers',STALL_MENUS.flowers.items.find(i=>i.id==='jhuri-large')));for(let i=0;i<40;i++)world.frame(world.last+50);const prop=world.purchase.prop;
+ puja.setMode('ashtami');world.camera.position.set(...puja.target().position);assert(puja.action('start',true));ritualUntil('ready');assert(puja.handRig.visible);assert(!prop.visible);
+ puja.leave();world.frame(world.last+50);assert(!puja.handRig.visible);assert(prop.visible);
+ puja.setMode('dashami');world.camera.position.set(...puja.target().position);assert(puja.action('start',true));assert(puja.action('perform',true));world.frame(world.last+50);assert(puja.handRig.visible);assert(!prop.visible);
+ ritualUntil('playing');assert(!puja.handRig.visible);assert(prop.visible);world.putAwayPurchase();puja.setMode('saptami');
+});
+test('greeting releases vendor handoff ownership and smoothly completes delivery',async()=>{
+ const {STALL_MENUS}=await import('../dist/neighbourhood.js');puja.setMode('saptami');world.camera.position.set(-8.55,1.9,10);world.camera.updateMatrixWorld();assert(world.presentPurchase('tea',STALL_MENUS.tea.items[0]));world.frame(world.last+50);
+ const purchase=world.purchase,vendor=purchase.vendor,position=purchase.prop.position.clone();assert(vendor.armPose.arms[1].posed);world.greet('tea');assert(!vendor.armPose.arms[1].posed);assert(purchase.start.distanceTo(position)<1e-8);
+ world.frame(world.last+50);assert(vendor.gesture.visible);assert(vendor.arms.every(a=>!a.visible));assert(!vendor.armPose.arms[1].posed);assert(purchase.prop.visible);assert(purchase.elapsed>=1.15);
+ for(let i=0;i<20;i++)world.frame(world.last+50);assert(purchase.prop.servingHand.visible);assert(!vendor.armPose.arms[1].posed);world.putAwayPurchase();vendor.greetingUntil=0;world.conversationId=null;world.frame(world.last+50);
+});
+test('all three dhakis keep hands and shafts outside the barrel and tap the outer skin',()=>{
+ puja.setMode('saptami');world.reduced=false;const performers=[world.characters.get('dhaki'),...world.extraDhakis],closest=performers.map(()=>[Infinity,Infinity]);
+ const inspect=()=>performers.map((p,index)=>p.sticks.map((stick,arm)=>{
+  const side=arm?1:-1,palm=p.arms[arm].getObjectByName('human-hand').getWorldPosition(new THREE.Vector3()),tip=stick.localToWorld(new THREE.Vector3(0,.5,0)),grip=stick.localToWorld(new THREE.Vector3(0,-.5,0));
+  assert(p.armPose.arms[arm].posed);assert(palm.distanceTo(grip)<1e-8);assert(Math.abs(grip.distanceTo(tip)-.34)<1e-8);
+  p.drum.worldToLocal(palm);p.drum.worldToLocal(tip);p.drum.worldToLocal(grip);
+  assert(side*palm.x>.52,'Palm must remain outside the drum head and barrel');assert(side*tip.x>=.4625,'Stick tip must not pass through the outer skin');assert(side*grip.x>side*tip.x);
+  assert(Math.hypot(tip.y,tip.z)<.30,'Beat lands inside the skin, clear of its rim');closest[index][arm]=Math.min(closest[index][arm],side*tip.x-(index?.46:.4625));
+  return [...palm.toArray(),...tip.toArray()];
+ }));
+ for(let frame=0;frame<200;frame++){world.frame(world.last+50);inspect();}
+ assert(closest.flat().every(gap=>gap<.004),'Each stick must reach its drum skin during a beat');
+ world.reduced=true;world.frame(world.last+50);const still=inspect();world.frame(world.last+500);assert.deepEqual(inspect(),still);world.reduced=false;
+});
+
+test('jump lifts the walking camera, lands at its original height and resets on interruptions',async()=>{
+ world.stop();world.cancelMove();puja.setMode('saptami');world.started=true;world.queueRun=null;world.camera.position.set(0,1.9,24);
+ assert(world.jump());world.frame(world.last+50);assert(world.camera.position.y>1.9);assert(!world.jump());
+ for(let i=0;i<20;i++)world.frame(world.last+50);assert(Math.abs(world.camera.position.y-1.9)<1e-10);assert(!world.jumpMotion.active);
+ assert(world.jump());world.frame(world.last+50);world.stop();assert(Math.abs(world.camera.position.y-1.9)<1e-10);assert(!world.jumpMotion.active);
+ assert(world.jump());world.frame(world.last+50);await world.go([0,1.9,25],[0,2,0],{immediate:true});assert(!world.jumpMotion.active);assert.equal(world.camera.position.y,1.9);
+ for(const flag of ['locked','suspended','ritualLocked']){world[flag]=true;assert(!world.jump());world[flag]=false;}
+ world.renderCamera=puja.camera;assert(!world.jump());world.renderCamera=null;
+ puja.setMode('ashtami');world.hasEntered=true;world.camera.position.set(...puja.target().position);assert(puja.action('start',true));assert(!world.jump());ritualUntil('ready');assert(!world.jump());
+ puja.leave();puja.setMode('dashami');world.camera.position.set(...puja.target().position);assert(puja.action('start',true));assert(puja.action('perform',true));assert(!world.jump(),'Dashami contact blocks jumping before its first render');
+ puja.setMode('saptami');assert(world.jump());world.stop();world.started=false;
+});
+
+test('all six shop counters block walking and jumping while their front approaches stay reachable',async()=>{
+ world.stop();world.cancelMove();puja.setMode('saptami');world.started=true;world.hasEntered=true;world.queueRun=null;assert.equal(world.staticObstacles.length,6);
+ for(const o of world.staticObstacles){
+  const normal={x:Math.sin(o.rotation),z:Math.cos(o.rotation)};world.camera.position.set(o.x+normal.x*1.8,1.9,o.z+normal.z*1.8);world.yaw=o.rotation;world.setMoveInput(0,1);assert(world.jump());
+  for(let i=0;i<40;i++)world.frame(world.last+50);world.stop();
+  const dx=world.camera.position.x-o.x,dz=world.camera.position.z-o.z;assert(dx*normal.x+dz*normal.z>=o.halfZ+.345-1e-8,`${o.kind} must remain solid during jumps`);
+  await world.go([o.x,1.9,o.z],[0,2,0],{immediate:true});const p=world.camera.position;assert(clearSegment(p,p,[o]));
+ }
+ world.stop();world.started=false;
+});
+
+test('guided walking replans around a new blocker without crossing it or replacing the promise',async()=>{
+ world.stop();world.cancelMove();puja.setMode('saptami');world.queueRun=null;world.hasEntered=true;world.started=false;world.camera.position.set(-3,1.9,24);world.yaw=world.pitch=0;
+ const obstacles=world.obstacles,blockers=[];world.obstacles=()=>blockers;
+ try{const pending=world.go([3,1.9,24],[3,1.9,0]),target=world.target;assert.equal(target.waypoints.length,1);const look=[target.yaw,target.pitch];blockers.push({x:0,z:24,radius:.65});
+  for(let i=0;i<300&&world.target;i++){world.frame(world.last+50);assert(clearSegment(world.camera.position,world.camera.position,blockers),'replanning must retain collision safety');}
+  await pending;assert(!world.target);assert(target.replans>0&&target.replans<=6);assert(Math.hypot(world.camera.position.x-3,world.camera.position.z-24)<.035);assert.deepEqual([target.yaw,target.pitch],look);assert(Math.abs(world.yaw-target.yaw)<.01);
+ }finally{world.cancelMove();world.obstacles=obstacles;}
+});
+
+test('a permanently blocked guided trip stops after bounded retries and settles its promise safely',async()=>{
+ world.stop();world.cancelMove();world.camera.position.set(0,1.9,24);const obstacles=world.obstacles,blockers=[];world.obstacles=()=>blockers;
+ try{const pending=world.go([0,1.9,20],[0,1.9,0]),target=world.target;blockers.push({x:0,z:22,halfX:20,halfZ:.5,rotation:0});
+  for(let i=0;i<250&&world.target;i++){world.frame(world.last+50);assert(clearSegment(world.camera.position,world.camera.position,blockers));}
+  assert(!world.target,'a blocked trip must release its waiter');assert.equal(await pending,false);assert.equal(target.replans,6);assert(world.camera.position.z>=22.845-1e-8);
+ }finally{world.cancelMove();world.obstacles=obstacles;}
+});

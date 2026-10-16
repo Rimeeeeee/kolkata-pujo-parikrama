@@ -1,4 +1,5 @@
 import * as THREE from './assets/three.module.js';
+import {installDhakPerformance} from './dhak-performance.js';
 
 export function buildRequestedAdditions(w){
  // Shared geometry and six bright paint textures cover both lane and courtyard.
@@ -11,9 +12,8 @@ export function buildRequestedAdditions(w){
   const barrel=w.mesh((w.geometries.extraDhak??=new THREE.CylinderGeometry(.31,.33,.85,14)),'#984b33',[0,0,0],null,drum);barrel.rotation.z=Math.PI/2;
   for(const xx of [-.44,.44]){const skin=w.cyl('#ded0aa',[xx,0,0],[.335,.04,.335],drum);skin.rotation.z=Math.PI/2;}
   for(let i=0;i<8;i++){const a=i*Math.PI/4;w.rod([-.43,Math.cos(a)*.33,Math.sin(a)*.33],[.43,Math.cos(a+.45)*.33,Math.sin(a+.45)*.33],.01,'#d8c7a2',drum);}
-  w.rod([-.2,1.6,0],[.34,.93,.48],.03,'#b46846',p.body);for(let i=0;i<2;i++)w.rod([0,-.43,0],[0,-.43,.44],.012,'#d7c099',p.arms[i]);
+  w.rod([-.2,1.6,0],[.34,.93,.48],.03,'#b46846',p.body);installDhakPerformance(w,p,drum,{phase,color:'#d7c099'});
   for(let i=0;i<5;i++)w.ball('#ece0c4',[-.35,.33+i*.05,.04+i*.03],[.045,.28,.025],drum);
-  w.animations.push(t=>{if(!w.reduced)for(let i=0;i<2;i++)p.arms[i].rotation.x=-.7+Math.sin(t*14+phase+i*Math.PI)*.38;});
  }
  const p=w.person(8.3,-8.2,{outfit:'#eee1c9',sari:true,pose:'shankha',rotation:-Math.PI/2});p.nonInteractable=true;w.conchPerson=p;
  const border=w.box('#a43b30',[-.1,1.25,.24],[.13,.76,.035],p.body);border.rotation.z=-.25;p.arms.forEach(a=>a.visible=false);
