@@ -21,6 +21,14 @@ All six shop counters have rotated rectangular footprints matching the 4.1 x 1.8
 
 The rendered tour exposed a guided route stopping against a newly blocking visitor. Guided movement now replans after 0.8 seconds without useful progress, preserving its destination, final look and pending promise. Retries are bounded; a permanently blocked route stops without teleporting.
 
+## Crowd motion and photo poses
+
+The courtyard now includes visitors taking short walks between viewing spots, with staggered pauses, planted walking steps, arm swing and smooth turns. The central aisle stays open. Worshippers, photographers, named characters and queue identities keep their roles. Walkers avoid the player, other visible people, ritual actors and solid props; they pause for guided arrival, queue admission, reduced motion and active courtyard rituals. Hidden ritual-replaced visitors remain stationary.
+
+Photo visitors now hold a visible phone in both hands with elbows lowered beside the torso. The phone pose keeps its grip rather than applying the old straight-forward arm rotation or idle arm swing. Riya's phone hides during namaskar and returns with her ordinary arms afterward. A configurable elbow direction leaves the other ritual and performer rigs at their existing defaults.
+
+Two new real-scene regressions check phone grip and lowered elbows across model scales and greetings, plus 40 seconds of wandering with pauses, player/prop clearance, central-aisle clearance, reduced-motion freeze and ritual staging freeze. The latest muted browser replay checks the full desktop and 844x390 landscape render; paired native screenshots capture crowd movement from an unchanged camera.
+
 ## Idol artwork
 
 The retained artwork has exactly ten central Durga hands, five per side, and the requested dark moustache on Kartick. The user explicitly chose to keep the earlier hand version and cancel the later hand/weapon redraw. The new redraw candidates were not integrated. Detailed hand and weapon anatomy is therefore deferred, not certified as corrected.
@@ -29,7 +37,7 @@ Real Bagbazar photographs were inspected during the cancelled redraw research. T
 
 ## Automated and independent verification
 
-`npm test`: **127 passing checks across 13 files**, including 44 real-Three.js world cases. `git diff --check` passes. Coverage includes three-round Anjali, dance and reciprocal sindoor contact, serving ownership, hand scale, vendor handoff release, all-three-dhaki drum clearance, arati support, jump interruption, counter routing, dynamic route replanning, rotation pause and applied-art removal.
+`npm test`: **129 passing checks across 13 files**, including 46 real-Three.js world cases. `git diff --check` passes. Coverage includes three-round Anjali, dance and reciprocal sindoor contact, serving ownership, hand scale, vendor handoff release, all-three-dhaki drum clearance, arati support, jump interruption, counter routing, dynamic route replanning, rotation pause and applied-art removal.
 
 Three agents independently re-audited models, mobile/input and ritual state. Additional drum penetration and airborne sindoor contact defects discovered during that pass were repaired and rechecked. No remaining functional defect was confirmed in those reviewed areas. This conclusion excludes the explicitly deferred idol hand redraw.
 

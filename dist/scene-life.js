@@ -51,7 +51,18 @@ export function installPeopleLife(w){
  }
  w.addaGroups=[[-7.6,8.7,-6.8,8.3],[7.4,25.7,7.8,24.6]];
  for(const [ax,az,bx,bz] of w.addaGroups){const a=w.people.find(p=>p.home.x===ax&&p.home.z===az),b=w.people.find(p=>p.home.x===bx&&p.home.z===bz);if(a&&b){a.chatPartner=b;b.chatPartner=a;a.restYaw=Math.atan2(bx-ax,bz-az);b.restYaw=a.restYaw+Math.PI;a.g.rotation.y=a.restYaw;b.g.rotation.y=b.restYaw;}}
- const walkers=w.people.filter(p=>p.batched&&p.g.position.z>20).slice(-3);for(const [i,p] of walkers.entries()){p.walkPoints=[{x:p.home.x,z:p.home.z},{x:p.home.x+(p.home.x>0?-.8:.8),z:p.home.z-1.2}];p.walkIndex=i%2;p.walkWait=i*1.1;}
+ const available=p=>p.batched&&!p.characterId&&!p.chatPartner&&p.pose==='idle';
+ const walkers=w.people.filter(p=>available(p)&&p.home.z>20).slice(-3);
+ for(const [i,p] of walkers.entries()){
+  p.walkPoints=[{x:p.home.x,z:p.home.z},{x:p.home.x+(p.home.x>0?-.8:.8),z:p.home.z-1.2}];p.walkIndex=1;p.walkWait=i*1.1;p.walkSpeed=.60;
+ }
+ // Short visits between neighbouring viewing spots leave the central aisle open.
+ const visitors=w.people.filter(p=>available(p)&&p.home.z<0&&Math.abs(p.home.x)<7).filter((p,i)=>i%2===0).slice(0,8);
+ for(const [i,p] of visitors.entries()){
+  const side=Math.sign(p.home.x);
+  p.walkPoints=[{x:p.home.x,z:p.home.z},{x:p.home.x+side*.55,z:p.home.z+.80},{x:p.home.x-side*.25,z:p.home.z+1.20}];
+  p.courtyardWalker=true;p.walkIndex=1;p.walkWait=(i%4)*.85;p.walkSpeed=.48+(i%3)*.055;
+ }
 }
 
 export function greetPerson(w,id){const p=w.characters.get(id);if(!p||p.nonInteractable)return;if(p.pose==='dhak'){w.conversationId=id;return;}finishPurchaseHandoff(w,p);p.greetingUntil=w.lifeTime+4.5;p.greetingStart=w.lifeTime;w.conversationId=id;}
@@ -59,18 +70,34 @@ export function characterPosition(w,id){const p=w.characters.get(id);return p?[p
 
 export function poseWalkingLegs(p,phase,walking){p.legs.forEach((leg,i)=>{const wave=Math.sin(phase+i*Math.PI);leg.rotation.x=walking?wave*.25:0;leg.position.y=.37+(walking?Math.max(0,wave)*.025:0);});}
 
+function walkVisitor(w,p,dt,greeting){
+ const ritualBusy=p.courtyardWalker&&w.rituals?.state.started;
+ p.walking=false;
+ if(!p.walkPoints||w.reduced||greeting||p.ritualHidden||w.target||!w.started||w.locked||w.ritualLocked||ritualBusy)return;
+ p.walkWait-=dt;if(p.walkWait>0)return;
+ const target=p.walkPoints[p.walkIndex],from=p.g.position,dist=Math.hypot(target.x-from.x,target.z-from.z),step=Math.min(dist,p.walkSpeed*dt);
+ const others=w.obstacles(p);others.push({x:w.camera.position.x,z:w.camera.position.z,radius:.36});
+ const safe=moveAmongPeople(from,{x:from.x+(target.x-from.x)*step/(dist||1),z:from.z+(target.z-from.z)*step/(dist||1)},others,p.radius);
+ const moved=Math.hypot(safe.x-from.x,safe.z-from.z);
+ if(moved>.0001){p.walkYaw=Math.atan2(safe.x-from.x,safe.z-from.z);p.walking=true;}
+ from.x=safe.x;from.z=safe.z;p.walkBlockedFor=moved<step*.2?(p.walkBlockedFor||0)+dt:0;
+ if(dist<.08||p.walkBlockedFor>1.2){p.walkIndex=(p.walkIndex+1)%p.walkPoints.length;p.walkWait=2.0+Math.abs(p.seed%4)*.6;p.walkBlockedFor=0;p.walking=false;}
+}
+
 export function updatePeople(w,dt){
  w.lifeTime+=dt;w.crowdTick+=dt;const refresh=w.crowdTick>=1/24;if(refresh){w.crowdTick=0;for(const mesh of w.visitorBatches||[])mesh.count=0;}
  for(const p of w.people){
   const t=w.lifeTime,phase=t+p.seed,queueActive=p.queueId!==undefined&&w.queueRun;
   const greeting=Math.max(0,(p.greetingUntil||0)-t);
-  if(p.walkPoints&&!w.reduced&&!greeting&&!w.target&&w.started&&!w.locked&&!w.conversationId){p.walkWait-=dt;if(p.walkWait<=0){const target=p.walkPoints[p.walkIndex],dist=Math.hypot(target.x-p.g.position.x,target.z-p.g.position.z),step=Math.min(dist,.65*dt);const others=w.people.filter(o=>o!==p).map(o=>({x:o.g.position.x,z:o.g.position.z,radius:o.radius}));others.push({x:w.camera.position.x,z:w.camera.position.z,radius:.36});const safe=moveAmongPeople(p.g.position,{x:p.g.position.x+(target.x-p.g.position.x)*step/(dist||1),z:p.g.position.z+(target.z-p.g.position.z)*step/(dist||1)},others,p.radius);if(Math.hypot(safe.x-p.g.position.x,safe.z-p.g.position.z)>.0001)p.walkYaw=Math.atan2(safe.x-p.g.position.x,safe.z-p.g.position.z);p.g.position.x=safe.x;p.g.position.z=safe.z;if(dist<.08){p.walkIndex=1-p.walkIndex;p.walkWait=2.5;}p.walking=dist>.08;}else p.walking=false;}else p.walking=false;
+  walkVisitor(w,p,dt,greeting);
   if(!w.reduced&&!queueActive){p.body.position.y=0;p.head.rotation.y=Math.sin(phase*.48)*.13;p.head.rotation.x=Math.sin(phase*.72)*.035;p.body.rotation.z=0;
    // Shallow swing with a compensating hip lift keeps soles above the ground.
    poseWalkingLegs(p,t*6,p.walking);
    if(p.walking)p.g.rotation.y=turnTowards(p.g.rotation.y,p.walkYaw??p.restYaw,dt*4);
-   if(['idle','photo','pray'].includes(p.pose))for(let i=0;i<2;i++){p.arms[i].rotation.x=p.restArms[i].x+Math.sin(phase*(p.walking?6:1.15)+i*Math.PI)*(p.walking?.3:.055);p.arms[i].rotation.z=p.restArms[i].z+Math.sin(phase*.8+i)*.035;}
+   else if(p.walkPoints)p.g.rotation.y=turnTowards(p.g.rotation.y,p.restYaw,dt*2);
+   if(p.pose==='idle')for(let i=0;i<2;i++){p.arms[i].rotation.x=p.restArms[i].x+Math.sin(phase*(p.walking?6:1.15)+i*Math.PI)*(p.walking?.3:.055);p.arms[i].rotation.z=p.restArms[i].z+Math.sin(phase*.8+i)*.035;}
   }
+  if(p.phone)p.phone.visible=!greeting;
   if(p.gesture&&!greeting&&w.conversationId!==p.characterId&&!p.walking)p.g.rotation.y=w.reduced?p.restYaw:turnTowards(p.g.rotation.y,p.restYaw,dt*4);
   if(p.chatPartner&&!greeting&&!p.walking&&!w.reduced){p.g.rotation.y=turnTowards(p.g.rotation.y,p.restYaw,dt*3);p.head.rotation.y=Math.sin(phase*.6)*.08;p.arms[1].rotation.x=-.25+Math.sin(phase*1.3)*.12;p.arms[1].rotation.z=.15;}
   if(p.pose==='arati')p.g.rotation.y=Math.atan2(-p.g.position.x,-21.25-p.g.position.z);

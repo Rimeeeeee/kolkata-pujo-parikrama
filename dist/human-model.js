@@ -1,4 +1,5 @@
 import * as THREE from './assets/three.module.js';
+import {RitualArms} from './ritual-arms.js';
 
 const SKINS=['#a77b57','#b88a65','#895d43','#c69873'];
 const HAIR=['#292526','#40332c','#56504a','#b0a99b'];
@@ -66,8 +67,17 @@ export function makePerson(w,x,z,{outfit='#c18c54',sari=false,pose='idle',scale=
   if(sari){const ring=w.mesh(w.geometries.bangle??=new THREE.TorusGeometry(1,.14,5,12),trim,[0,.75,0],[1.2,.58,2.1],hand);ring.rotation.x=Math.PI/2;}
   arms.push(arm);
  }
- if(pose==='photo'){arms.forEach(a=>a.rotation.x=-1.5);w.box('#292d31',[0,1.6,.54],[.27,.15,.035],body);w.box('#728d9d',[0,1.6,.562],[.22,.11,.01],body);}
+ let phone;
+ if(pose==='photo'){
+  phone=new THREE.Group();phone.name='visitor-phone';phone.position.set(0,1.55,.43);body.add(phone);
+  w.box('#292d31',[0,0,0],[.29,.17,.035],phone);w.box('#728d9d',[0,0,-.021],[.25,.13,.008],phone);w.ball('#778f98',[.10,.045,.022],[.018,.018,.006],phone);
+ }
  if(pose==='pray'){arms.forEach(a=>a.visible=false);addNamaskar(w,body,skin,outfit,.30);}
  if(priest){w.box('#b66541',[-.14,1.25,.2],[.11,.75,.04],body);w.rod([-.18,1.55,.22],[.19,.9,.22],.012,'#f1ddac',body);face('#934438',[0,1.95,.151],[.012,.035,.009]);}
- const person={g,body,head,legs,arms,pose,human:true,skin,hair,age,appearance,seed:x*3+z,radius:.30*scale*Math.max(1,build)};w.people.push(person);return person;
+ const person={g,body,head,legs,arms,pose,human:true,skin,hair,age,appearance,seed:x*3+z,radius:.30*scale*Math.max(1,build)};
+ if(phone){
+  person.phone=phone;person.photoArms=new RitualArms(person,{elbowPole:[.16,-.85,.12]});
+  for(let i=0;i<2;i++){const grip=body.localToWorld(new THREE.Vector3((i?1:-1)*.155,1.54,.43));person.photoArms.pose(i,grip);}
+ }
+ w.people.push(person);return person;
 }

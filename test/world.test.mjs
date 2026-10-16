@@ -5,6 +5,7 @@ import {pathToFileURL} from 'node:url';
 import path from 'node:path';
 import {PujaRituals} from '../dist/puja-rituals.js';
 import {clearSegment} from '../dist/movement.js';
+import {updatePeople} from '../dist/scene-life.js';
 import * as THREE from '../dist/assets/three.module.js';
 
 const canvasContext=new Proxy({},{get:(o,k)=>o[k]??(()=>{}),set:(o,k,v)=>(o[k]=v,true)});
@@ -16,6 +17,40 @@ const source=(await fs.readFile(new URL('../dist/world.js',import.meta.url),'utf
  .replace('new THREE.WebGLRenderer(','new globalThis.MockRenderer(');
  const {PujoWorld}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 let world,puja,chantCount=0;
+
+test('photo visitors hold their phone with bent elbows and put it away during a greeting',()=>{
+ const w=new PujoWorld({addEventListener(){},setPointerCapture(){}},{onReady(){}}),photos=w.people.filter(p=>p.pose==='photo');
+ const checkGrip=p=>{for(const arm of p.photoArms.arms){
+  const palm=arm.palm.getWorldPosition(new THREE.Vector3()),elbow=arm.elbow.getWorldPosition(new THREE.Vector3());
+  const localPalm=p.body.worldToLocal(palm.clone());p.body.worldToLocal(elbow);
+  assert(elbow.y<localPalm.y-.20,'Elbow stays below the phone instead of pointing straight forward');
+  assert(Math.abs(elbow.x)<.36,'Elbows stay close to the torso instead of a sideways T pose');
+  p.phone.worldToLocal(palm);assert(Math.abs(Math.abs(palm.x)-.155)<1e-8);assert(Math.abs(palm.y+.01)<1e-8);assert(Math.abs(palm.z)<1e-8);
+ }};
+ assert(photos.length>2);photos.forEach(checkGrip);
+ for(let i=0;i<120;i++){updatePeople(w,.05);photos.forEach(checkGrip);}
+ const riya=w.characters.get('photographer');w.greet('photographer');updatePeople(w,.05);assert(!riya.phone.visible);assert(riya.arms.every(a=>!a.visible));
+ for(let i=0;i<100;i++)updatePeople(w,.05);assert(riya.phone.visible);assert(riya.arms.every(a=>a.visible));checkGrip(riya);
+});
+
+test('courtyard visitors wander with pauses, avoid people and leave the central aisle clear',()=>{
+ const w=new PujoWorld({addEventListener(){},setPointerCapture(){}},{onReady(){}});w.started=true;w.camera.position.set(0,2.1,-5);
+ const walkers=w.people.filter(p=>p.courtyardWalker),starts=walkers.map(p=>p.g.position.clone()),travel=walkers.map(()=>0);let steps=false,pauses=false;
+ assert(walkers.length>=6);assert(walkers.every(p=>p.pose==='idle'&&!p.characterId&&p.queueId===undefined));
+ for(let frame=0;frame<800;frame++){
+  updatePeople(w,.05);
+  for(const [i,p] of walkers.entries()){
+   travel[i]=Math.max(travel[i],p.g.position.distanceTo(starts[i]));steps||=p.walking;pauses||=!p.walking;
+   assert(clearSegment(p.g.position,p.g.position,w.obstacles(p),p.radius),'Wandering must clear other visitors and solid props');
+   assert(Math.hypot(p.g.position.x-w.camera.position.x,p.g.position.z-w.camera.position.z)>p.radius+.36);
+   assert(Math.abs(p.g.position.x)>1.7&&Math.abs(p.g.position.x)<7.5&&p.g.position.z<-1.5);
+  }
+ }
+ assert(travel.filter(d=>d>.35).length>=6,JSON.stringify(travel));assert(steps&&pauses);
+ w.reduced=true;const stopped=walkers.map(p=>p.g.position.clone());for(let i=0;i<80;i++)updatePeople(w,.05);walkers.forEach((p,i)=>assert(p.g.position.equals(stopped[i])));
+ w.reduced=false;const rituals=w.rituals=new PujaRituals(w);w.hasEntered=true;w.camera.position.set(0,2.1,-15.1);rituals.setMode('ashtami');assert(rituals.action('start',true));
+ const staging=walkers.map(p=>p.g.position.clone());for(let i=0;i<80;i++)updatePeople(w,.05);walkers.forEach((p,i)=>assert(p.g.position.equals(staging[i])));
+});
 test('entire scene builds with real Three.js geometry and all crowd roles',async()=>{
  let ready=false;const canvas={addEventListener(){},setPointerCapture(){}};
  world=new PujoWorld(canvas,{onReady:()=>ready=true,onFail:()=>assert.fail('Scene initialization failed')});
