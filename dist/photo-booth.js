@@ -5,7 +5,7 @@ export function buildPhotoBooth(w){
  const rig=new THREE.Group();rig.name='pandal-photo-camera';rig.position.set(0,0,14.5);w.scene.add(rig);w.photoRig=rig;
  for(const a of [0,Math.PI*2/3,Math.PI*4/3])w.rod([0,1.5,0],[Math.cos(a)*.45,.03,Math.sin(a)*.45],.025,'#454b49',rig);
  w.box('#303d3d',[0,1.63,0],[.45,.29,.20],rig);const lens=w.cyl('#56676b',[0,1.63,-.17],[.105,.18,.105],rig);lens.rotation.x=Math.PI/2;w.ball('#7597a1',[0,1.63,-.27],[.08,.08,.018],rig);
- w.text('পুজোর ছবি',[0,2.12,0],1.7,.36,{bg:'#7c4535',parent:rig,size:73});
+ w.text('পুজোর ছবি',[0,1.98,0],1.05,.22,{bg:'#7c4535',parent:rig,size:73});
  w.portraitCamera=new THREE.PerspectiveCamera(64,1.5,.1,100);w.portraitCamera.position.set(...PHOTO_SPOT.camera);w.portraitCamera.lookAt(...PHOTO_SPOT.look);w.scene.add(w.portraitCamera);
 }
 export function setPortrait(w,{outfit='sari',pose='namaskar'}={}){

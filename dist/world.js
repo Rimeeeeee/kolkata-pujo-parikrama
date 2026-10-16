@@ -181,17 +181,23 @@ export class PujoWorld {
  person(x,z,{outfit='#c18c54',sari=false,pose='idle',scale=1,rotation=0,hair='#292526',skin='#a77b57',priest=false}={}){
   const g=new THREE.Group();g.position.set(x,z<1?.4:0,z);g.rotation.y=rotation;g.scale.setScalar(scale);this.scene.add(g);
   const body=new THREE.Group();g.add(body);
+  const human=z<1||pose==='portrait';
   if(sari){this.mesh((this.geometries.sari??=new THREE.CylinderGeometry(.22,.34,1.1,12)),outfit,[0,.75,0],null,body);this.ball(outfit,[0,1.36,0],[.27,.35,.19],body);this.box('#e1c195',[-.15,1.05,.2],[.09,1,.04],body);this.ball(hair,[0,1.99,-.12],[.21,.16,.16],body);this.ball(hair,[.05,1.87,-.22],[.13,.13,.12],body);}
   else{this.mesh((this.geometries.kurta??=new THREE.CylinderGeometry(.22,.28,.85,12)),outfit,[0,1.15,0],null,body);this.cyl(priest?'#eee1c5':'#c9b697',[0,.54,0],[.245,.6,.245],body);for(let side of [-1,1]){this.cyl(skin,[side*.12,.19,0],[.065,.32,.065],body);this.box('#48362b',[side*.12,.04,.06],[.16,.08,.3],body);}this.ball(hair,[0,1.99,-.025],[.195,.14,.17],body);}
-  this.cyl(skin,[0,1.66,0],[.07,.16,.07],body);this.ball(skin,[0,1.87,.02],[.18,.23,.17],body);this.ball(skin,[0,1.87,.19],[.035,.045,.035],body);
+  // Adult proportions, a shaped jaw and facial features for the mandap and portraits.
+  if(human){for(const part of body.children.filter(o=>o.position.y>1.7)){part.scale.multiplyScalar(.79);part.position.y-=.015;}g.name='human-puja-visitor';}
+  this.cyl(skin,[0,1.65,0],[human?.065:.07,.16,human?.065:.07],body);this.ball(skin,[0,1.85,.02],human?[.145,.19,.14]:[.18,.23,.17],body);this.ball(skin,[0,1.85,human?.162:.19],human?[.025,.043,.042]:[.035,.045,.035],body);
   // Tiny face details, sandals and a red bindi where appropriate.
-  for(let side of [-1,1])this.ball('#302821',[side*.065,1.91,.166],[.015,.017,.009],body);if(sari)this.ball('#a13a30',[0,2.005,.17],[.016,.02,.009],body);
-  const arms=[];for(let side of [-1,1]){const arm=new THREE.Group();arm.position.set(side*.23,1.48,0);body.add(arm);this.rod([0,0,0],[side*.07,-.4,.025],.065,sari?outfit:skin,arm);this.ball(skin,[side*.07,-.45,.03],[.065,.09,.065],arm);arms.push(arm);}
+  for(let side of [-1,1]){if(human){this.ball('#e5d9c8',[side*.055,1.89,.144],[.024,.012,.009],body);this.ball('#302821',[side*.055,1.89,.153],[.009,.011,.006],body);this.rod([side*.03,1.925,.144],[side*.08,1.925,.132],.008,hair,body);this.ball(skin,[side*.145,1.85,.01],[.025,.043,.028],body);}else this.ball('#302821',[side*.065,1.91,.166],[.015,.017,.009],body);}if(sari)this.ball('#a13a30',[0,human?1.95:2.005,human?.154:.17],[.012,.016,.009],body);
+  const arms=[];for(let side of [-1,1]){const arm=new THREE.Group();arm.position.set(side*.23,1.48,0);body.add(arm);if(human){this.ball(sari?outfit:skin,[0,-.02,0],[.075,.09,.08],arm);this.rod([0,0,0],[side*.04,-.24,.015],.06,sari?outfit:priest?skin:outfit,arm);this.ball(skin,[side*.04,-.24,.015],[.055,.055,.055],arm);this.rod([side*.04,-.24,.015],[side*.06,-.43,.05],.045,skin,arm);const hand=this.ball(skin,[side*.06,-.48,.05],[.044,.078,.025],arm);hand.name='human-hand';this.ball(skin,[side*.025,-.455,.078],[.018,.04,.018],arm);}else{this.rod([0,0,0],[side*.07,-.4,.025],.065,sari?outfit:skin,arm);this.ball(skin,[side*.07,-.45,.03],[.065,.09,.065],arm);}arms.push(arm);}
   if(pose==='photo'){arms[0].rotation.x=-1.5;arms[1].rotation.x=-1.5;this.box('#292d31',[0,1.6,.54],[.32,.17,.035],body);this.box('#728d9d',[0,1.6,.562],[.25,.12,.01],body,{emissive:'#8aa0bd',emissiveIntensity:.3});}
-  if(pose==='pray'){for(let i=0;i<2;i++){arms[i].rotation.x=-1;arms[i].rotation.z=i?.5:-.5;}this.rod([-.16,1.32,.37],[0,1.48,.4],.05,skin,body);this.rod([.16,1.32,.37],[0,1.48,.4],.05,skin,body);}
+  if(pose==='pray'){if(human){arms.forEach(a=>a.visible=false);for(const side of [-1,1]){this.rod([side*.23,1.48,0],[side*.30,1.10,.13],.055,skin,body);this.rod([side*.30,1.10,.13],[side*.025,1.43,.30],.045,skin,body);this.ball(skin,[side*.025,1.47,.30],[.025,.085,.045],body);}}else{for(let i=0;i<2;i++){arms[i].rotation.x=-1;arms[i].rotation.z=i?.5:-.5;}this.rod([-.16,1.32,.37],[0,1.48,.4],.05,skin,body);this.rod([.16,1.32,.37],[0,1.48,.4],.05,skin,body);}}
   if(priest){this.box('#b66541',[-.14,1.25,.2],[.11,.75,.04],body);this.rod([-.18,1.55,.22],[.19,.9,.22],.012,'#f1ddac',body);this.ball('#934438',[0,2.01,.18],[.018,.045,.01],body);}
-  if(z<1){this.box('#7c4d3e',[0,1.78,.166],[.052,.01,.012],body);for(const side of [-1,1]){this.ball('#d9c8ae',[side*.065,1.91,.16],[.026,.014,.008],body);this.ball(skin,[side*.175,1.87,0],[.027,.045,.025],body);this.ball(skin,[side*.035,-.43,.055],[.025,.04,.025],arms[side<0?0:1]);}}
-  const person={g,body,arms,pose,seed:x*3+z,radius:.30*scale};this.people.push(person);return person;
+  if(human){this.box('#7c4d3e',[0,1.77,.153],[.047,.009,.009],body);this.ball(skin,[0,1.72,.065],[.092,.055,.065],body);
+   if(sari){const pallu=this.box('#d8b06a',[-.09,1.29,.185],[.075,.63,.026],body);pallu.rotation.z=-.46;for(let i=0;i<5;i++)this.rod([-.08+i*.035,.22,.335],[(-.08+i*.035)*.65,.96,.255],.009,'#ce955e',body);const hem=this.mesh((this.geometries.sariHem??=new THREE.TorusGeometry(.33,.012,5,32)),'#d8b06a',[0,.23,0],null,body);hem.rotation.x=Math.PI/2;for(const side of [-1,1]){this.ball('#bd923f',[side*.15,1.81,.02],[.018,.04,.018],body);this.box('#48362b',[side*.11,.07,.08],[.14,.065,.27],body);}}
+   else{this.box('#cfb47e',[0,1.34,.235],[.035,.38,.015],body);for(const y of [1.26,1.36,1.46])this.ball('#795d3f',[0,y,.25],[.014,.014,.008],body);for(const side of [-1,1]){const fold=this.box('#e6d5b3',[side*.11,.53,.205],[.12,.55,.035],body);fold.rotation.z=side*.08;this.rod([side*.04,1.59,.10],[side*.11,1.54,.18],.018,outfit,body);}}
+  }
+  const person={g,body,arms,pose,human,seed:x*3+z,radius:.30*scale};this.people.push(person);return person;
  }
  buildPeople(){
   const colors=['#b95448','#b59a5c','#597b78','#d6b78a','#867197','#b08b6b','#72917c'];
@@ -210,7 +216,7 @@ export class PujoWorld {
   this.person(-3,-10,{outfit:'#867197',sari:true,pose:'photo',rotation:Math.PI});
   this.batchPeople(staticPeople);
   // Bengali priest, dhoti and uttariya, facing Maa and circling the arati lamp.
-  const priest=this.person(.35,-17.5,{outfit:'#e6d6b4',priest:true,rotation:Math.atan2(-.35,-3.75),pose:'arati'});this.priest=priest;priest.arms[1].rotation.x=-1.3;
+  const priest=this.person(.35,-17.5,{outfit:'#e6d6b4',priest:true,rotation:Math.atan2(-.35,-3.75),pose:'arati'});this.priest=priest;priest.nonInteractable=true;priest.arms[1].rotation.x=-1.3;
   const lampGroup=new THREE.Group();priest.body.add(lampGroup);lampGroup.position.set(.43,1.4,.52);this.cyl('#b39745',[0,0,0],[.25,.05,.25],lampGroup);for(let i=0;i<5;i++){const a=i/5*Math.PI*2;this.ball('#ffe5a0',[Math.cos(a)*.18,.12,Math.sin(a)*.18],[.035,.13,.035],lampGroup,{emissive:'#ffb13a',emissiveIntensity:3});}
   this.animations.push(t=>{if(this.reduced)return;lampGroup.position.x=.36+Math.sin(t*1.7)*.25;lampGroup.position.y=1.5+Math.cos(t*1.7)*.16;priest.arms[1].rotation.z=.15+Math.sin(t*1.7)*.2;});
   // Dhaki with a suspended cylindrical dhak, carrying strap, ropes and two curved sticks.
@@ -233,7 +239,7 @@ export class PujoWorld {
   this.line([[0,-.32,0],[-.025,-.65,.03],[-.2,-1.25,.3]],'#e4d1a9',group);this.companionBalloon=group;
  }
  bind(){
-  this.resize=()=>{this.camera.aspect=innerWidth/innerHeight;this.camera.updateProjectionMatrix();this.renderer.setSize(innerWidth,innerHeight);};addEventListener('resize',this.resize);
+  this.resize=()=>{this.camera.aspect=innerWidth/innerHeight;this.camera.fov=innerWidth<650?62:54;this.camera.updateProjectionMatrix();this.renderer.setPixelRatio(Math.min(devicePixelRatio,innerWidth<650?1.25:1.5));this.renderer.setSize(innerWidth,innerHeight);};addEventListener('resize',this.resize);
   this.canvas.addEventListener('pointerdown',e=>{if(!this.started||this.locked)return;this.drag={x:e.clientX,y:e.clientY,id:e.pointerId};this.cancelMove();this.canvas.setPointerCapture(e.pointerId);});
   this.canvas.addEventListener('pointermove',e=>{if(!this.drag)return;this.yaw-=(e.clientX-this.drag.x)*.004;this.pitch=Math.max(-.65,Math.min(.6,this.pitch-(e.clientY-this.drag.y)*.003));this.drag.x=e.clientX;this.drag.y=e.clientY;});
   const release=()=>{this.drag=null;};this.canvas.addEventListener('pointerup',release);this.canvas.addEventListener('pointercancel',release);
