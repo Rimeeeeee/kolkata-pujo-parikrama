@@ -11,13 +11,7 @@ globalThis.document={createElement:()=>({width:1024,height:256,getContext:()=>ca
 Object.assign(globalThis,{innerWidth:1440,innerHeight:900,devicePixelRatio:1,matchMedia:()=>({matches:false}),addEventListener(){},requestAnimationFrame(){}});
 globalThis.MockRenderer=class{setPixelRatio(){}setSize(){}render(scene,camera){scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);assert(scene.children.length>100);assert(camera.isPerspectiveCamera);} };
 const source=(await fs.readFile(new URL('../dist/world.js',import.meta.url),'utf8'))
- .replace("'./assets/three.module.js'",JSON.stringify(pathToFileURL(path.resolve('dist/assets/three.module.js')).href))
- .replace("'./game-state.js'",JSON.stringify(pathToFileURL(path.resolve('dist/game-state.js')).href))
- .replace("'./movement.js'",JSON.stringify(pathToFileURL(path.resolve('dist/movement.js')).href))
- .replace("'./scene-life.js'",JSON.stringify(pathToFileURL(path.resolve('dist/scene-life.js')).href))
- .replace("'./pujo-additions.js'",JSON.stringify(pathToFileURL(path.resolve('dist/pujo-additions.js')).href))
- .replace("'./photo-booth.js'",JSON.stringify(pathToFileURL(path.resolve('dist/photo-booth.js')).href))
- .replace("'./alpona.js'",JSON.stringify(pathToFileURL(path.resolve('dist/alpona.js')).href))
+ .replace(/from '(\.\/[^']+)'/g,(_,url)=>'from '+JSON.stringify(pathToFileURL(path.resolve('dist',url)).href))
  .replace('new THREE.WebGLRenderer(','new globalThis.MockRenderer(');
  const {PujoWorld}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 let world,puja,chantCount=0;
@@ -122,4 +116,38 @@ test('full altar image fits beneath the canopy and fireworks use one fixed parti
 
 test('the priest never greets or turns away from Maa; Arjun stays ahead of the line',()=>{assert(world.volunteer.g.position.z<world.queuePeople[0].home.z);world.conversationId=null;world.greet('priest');assert.equal(world.conversationId,null);let now=world.last;for(let i=0;i<120;i++){now+=50;world.frame(now);}const p=world.priest,dx=-p.g.position.x,dz=-21.25-p.g.position.z;assert((Math.sin(p.g.rotation.y)*dx+Math.cos(p.g.rotation.y)*dz)/Math.hypot(dx,dz)>.99);assert(p.nonInteractable);assert(!p.gesture);});
 test('additions reuse floor art and keep non-interactive performers separate',()=>{assert.equal(world.extraDhakis.length,2);assert(world.extraDhakis.every(p=>p.nonInteractable&&p.pose==='dhak'));assert(world.conchPerson.nonInteractable);assert(world.addedAlponas.length>=60);assert.equal(world.alponaBatches.length,6);assert.equal(world.alponaBatches.reduce((n,m)=>n+m.count,0),world.alponas.length+world.addedAlponas.length);assert.equal(new Set(world.addedAlponas.map(m=>m.material)).size,6);assert(world.addedAlponas.some(m=>m.position.z<0));for(const m of world.addedAlponas){assert.equal(m.geometry,world.alponas[0].geometry);assert(world.alponaPalette.includes(m.material));assert.equal(m.material.toneMapped,false);assert.equal(m.position.y,m.position.z<0?.408:.035);}for(const p of [...world.extraDhakis,world.conchPerson])for(const other of world.people.filter(o=>o!==p))assert(Math.hypot(p.g.position.x-other.g.position.x,p.g.position.z-other.g.position.z)>p.radius+other.radius);});
-test('portrait framing keeps the pandal and avatar; wave points away from the face',async()=>{const THREE=await import('../dist/assets/three.module.js');const {setPortrait}=await import('../dist/photo-booth.js');world.scene.updateMatrixWorld(true);for(const x of [-10.8,10.8])for(const y of [.2,11.9]){const p=new THREE.Vector3(x,y,0).project(world.portraitCamera);assert(Math.abs(p.x)<.96&&Math.abs(p.y)<.96);}const count=world.people.length;for(const outfit of ['sari','dhoti'])for(const pose of ['namaskar','wave','relaxed']){const p=setPortrait(world,{outfit,pose});assert.equal(world.people.length,count);assert(!p.g.visible);if(pose==='wave'){p.g.updateMatrixWorld(true);const hand=p.arms[1].children.at(-1).getWorldPosition(new THREE.Vector3());assert(hand.x>.32);}}});
+test('portrait framing keeps the pandal and avatar; wave points away from the face',async()=>{const THREE=await import('../dist/assets/three.module.js');const {setPortrait}=await import('../dist/photo-booth.js');world.scene.updateMatrixWorld(true);for(const x of [-10.8,10.8])for(const y of [.2,11.9]){const p=new THREE.Vector3(x,y,0).project(world.portraitCamera);assert(Math.abs(p.x)<.96&&Math.abs(p.y)<.96);}const count=world.people.length;for(const outfit of ['sari','dhoti'])for(const pose of ['namaskar','wave','relaxed']){const p=setPortrait(world,{outfit,pose});assert.equal(world.people.length,count);assert(!p.g.visible);if(pose==='wave'){p.g.updateMatrixWorld(true);const hand=p.arms[1].getObjectByName('human-hand').getWorldPosition(new THREE.Vector3());assert(hand.x>.32);}}});
+
+// Functional checks for the independent models and street-life branch.
+test('every street visitor uses the human rig; crowd variation shares silhouette geometry',()=>{
+ assert(world.people.every(p=>p.human&&p.head&&p.legs.length===2));
+ const crowd=world.people.filter(p=>p.batched);assert(new Set(crowd.map(p=>p.skin)).size>=3);assert(crowd.some(p=>p.age==='elder'));assert(new Set(crowd.map(p=>p.g.scale.y)).size>=4);
+ const hands=world.people.flatMap(p=>p.arms.map(a=>a.getObjectByName('human-hand')));assert(hands.every(Boolean));
+ assert.equal(new Set(hands.flatMap(h=>h.children.filter(o=>o.geometry===world.geometries.fingers).map(o=>o.geometry))).size,1);
+});
+test('vendor hands over a real serving, keeps it visible while walking, and reuses bounded models',async()=>{
+ const {STALL_MENUS}=await import('../dist/neighbourhood.js');puja.setMode('saptami');world.started=true;world.locked=false;world.target=null;
+ for(const [shop,menu] of Object.entries(STALL_MENUS))for(const item of menu.items){
+  const v=world.vendorPeople.get(shop);world.camera.position.set(v.g.position.x+(v.g.position.x<0?2:-2),1.9,v.g.position.z);world.camera.updateMatrixWorld();
+  assert(world.presentPurchase(shop,item));world.frame(world.last+50);assert(world.purchase.vendor.armPose.arms[1].posed);
+  const prop=world.purchase.prop,hand=v.arms[1].getObjectByName('human-hand').getWorldPosition(new THREE.Vector3());assert(prop.position.distanceTo(hand)<.06);
+  for(let i=0;i<42;i++)world.frame(world.last+50);assert(prop.servingHand.visible);assert(!v.armPose.arms[1].posed);
+  const local=world.camera.worldToLocal(prop.position.clone());assert(local.z<-.7&&local.z>-.9);assert(local.y<-.35);
+ }
+ assert(world.servingModels.size<=7);const count=world.servingModels.size;world.camera.position.set(-8.55,1.9,10);assert(world.presentPurchase('tea',STALL_MENUS.tea.items[0]));assert.equal(world.servingModels.size,count);
+ world.camera.position.set(0,1.9,26);assert(!world.presentPurchase('tea',STALL_MENUS.tea.items[0]));assert(!world.presentPurchase('tea',{id:'unknown'}));world.putAwayPurchase();assert(!world.purchase);assert([...world.servingModels.values()].every(p=>!p.parent));
+});
+test('painting replaces one reusable floor texture and its camera frames the art and pandal',async()=>{
+ const {addMotif,ART_SPOT}=await import('../dist/alpona-corner.js');const stamps=[];addMotif(stamps);assert(world.obstacles().some(o=>o.x===-6.3&&o.z===5.5&&o.radius>=.7));const material=world.personalAlpona.material,geometry=world.personalAlpona.geometry,texture=material.map;
+ for(let i=0;i<12;i++)assert(world.applyAlpona(stamps));assert.equal(world.personalAlpona.material,material);assert.equal(material.map,texture);assert.equal(world.personalAlpona.geometry,geometry);assert.equal(world.artStamps.length,1);assert(!world.applyAlpona([{design:'bad'}]));
+ world.artCamera.updateMatrixWorld();for(const v of [...[-1.7,1.7].flatMap(x=>[-1.7,1.7].map(z=>new THREE.Vector3(ART_SPOT.x+x,.06,ART_SPOT.z+z))),...[-10.8,10.8].flatMap(x=>[.2,11.9].map(y=>new THREE.Vector3(x,y,0))),new THREE.Vector3(0,6,-21)]){v.project(world.artCamera);assert(Math.abs(v.x)<1&&Math.abs(v.y)<1&&v.z>0&&v.z<1);}
+});
+test('new held servings respect ritual cameras and reduced-motion poses',async()=>{
+ const {STALL_MENUS}=await import('../dist/neighbourhood.js');world.camera.position.set(-8.55,1.9,10);world.reduced=true;assert(world.presentPurchase('tea',STALL_MENUS.tea.items[0]));world.frame(world.last+50);const prop=world.purchase.prop,position=prop.position.clone();world.frame(world.last+50);assert(prop.position.equals(position));assert(!world.purchase.vendor.armPose.arms[1].posed);world.renderCamera=world.artCamera;world.frame(world.last+50);assert(!prop.visible);world.renderCamera=null;world.ritualLocked=true;world.frame(world.last+50);assert(!prop.visible);world.ritualLocked=false;world.putAwayPurchase();world.reduced=false;
+});
+
+test('distant visitors omit fine details, hidden visitors submit no instances, and soles stay planted',()=>{
+ puja.setMode('saptami');world.camera.position.set(0,2,20);world.frame(world.last+50);const near=world.visitorBatches.reduce((n,m)=>n+m.count,0);world.camera.position.set(0,2,90);world.frame(world.last+50);const far=world.visitorBatches.reduce((n,m)=>n+m.count,0);assert(far<near);
+ const crowd=world.people.filter(p=>p.batched);crowd.forEach(p=>p.ritualHidden=true);world.frame(world.last+50);assert(world.visitorBatches.every(m=>m.count===0&&!m.visible));crowd.forEach(p=>p.ritualHidden=false);world.frame(world.last+50);
+ const p=world.people.find(p=>p.walkPoints);world.camera.position.set(0,2,20);for(let i=0;i<40;i++){world.frame(world.last+50);p.g.updateWorldMatrix(true,true);for(const leg of p.legs){const bounds=new THREE.Box3().setFromObject(leg);assert(bounds.min.y>=p.g.position.y-.015,'A swinging sandal must stay above the paving');}}
+});

@@ -5,8 +5,15 @@ export const ALPONA_DESIGNS=['lotus','conch','sunburst','leaves','diamond','vine
 export function alponaMaterials(){
  return ALPONA_DESIGNS.map((design,index)=>{
   const canvas=document.createElement('canvas');canvas.width=canvas.height=512;
-  const c=canvas.getContext('2d');c.translate(256,256);c.lineCap='round';c.lineJoin='round';
-  const white='#ffffff',accent=['#f4bc55','#ef7254','#f7cc62','#78c6ac','#ee9471','#e6bd62'][index];
+  paintAlpona(canvas.getContext('2d'),design,{accent:['#f4bc55','#ef7254','#f7cc62','#78c6ac','#ee9471','#e6bd62'][index]});
+  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=8;
+  const material=new THREE.MeshBasicMaterial({map:texture,transparent:true,depthWrite:false,side:THREE.DoubleSide,forceSinglePass:true,toneMapped:false,fog:false,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});
+  material.name=`alpona-${design}`;return material;
+ });
+}
+
+export function paintAlpona(c,design,{white='#ffffff',accent='#f4bc55'}={}){
+ c.translate(256,256);c.lineCap='round';c.lineJoin='round';
   const stroke=(draw,color=white,width=5.2)=>{c.beginPath();c.strokeStyle=color;c.lineWidth=width;draw();c.stroke();};
   const circle=(r,color=white,width=5.2)=>stroke(()=>c.arc(0,0,r,0,Math.PI*2),color,width);
   const dot=(x,y,r=3.4,color=white)=>{c.beginPath();c.fillStyle=color;c.arc(x,y,r,0,Math.PI*2);c.fill();};
@@ -31,8 +38,4 @@ export function alponaMaterials(){
   }else{
    repeat(8,()=>{stroke(()=>{c.moveTo(0,42);c.bezierCurveTo(-80,89,76,151,0,201);},white,3.5);for(const [x,y] of [[-17,80],[17,125],[-10,170]]){stroke(()=>{c.moveTo(x,y);c.quadraticCurveTo(x+40,y-34,x+37,y-3);c.quadraticCurveTo(x+20,y+18,x,y);},accent,3);}});circle(55);ringDots(70,16);
   }
-  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=8;
-  const material=new THREE.MeshBasicMaterial({map:texture,transparent:true,depthWrite:false,side:THREE.DoubleSide,forceSinglePass:true,toneMapped:false,fog:false,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});
-  material.name=`alpona-${design}`;return material;
- });
 }

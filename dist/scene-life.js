@@ -1,7 +1,7 @@
 import * as THREE from './assets/three.module.js';
 import {CHARACTERS} from './neighbourhood.js';
 import {moveAmongPeople} from './movement.js';
-const HIDDEN_VISITOR=new THREE.Matrix4().makeScale(0,0,0);
+const turnTowards=(from,to,k)=>from+Math.atan2(Math.sin(to-from),Math.cos(to-from))*Math.min(1,k);
 
 export function buildStreetDetails(w){
  // A continuous lane and occupied far end replace the empty reverse view.
@@ -44,10 +44,12 @@ export function installPeopleLife(w){
  }
  for(const p of w.people){
   p.home=p.g.position.clone();p.restYaw=p.g.rotation.y;p.restArms=p.arms.map(a=>a.rotation.clone());
-  p.head=new THREE.Group();p.head.position.y=1.68;const parts=p.body.children.filter(o=>o.position.y>=1.65);p.body.add(p.head);for(const o of parts){o.position.y-=1.68;p.head.add(o);}
-  p.legs=[];for(const side of [-1,1]){const parts=p.body.children.filter(o=>o.isMesh&&o.position.y<.4&&Math.sign(o.position.x)===side);if(parts.length){const leg=new THREE.Group();leg.position.set(side*.12,.39,0);p.body.add(leg);for(const part of parts){part.position.sub(leg.position);leg.add(part);}p.legs.push(leg);}}
-  if(p.characterId&&!p.nonInteractable){const gesture=new THREE.Group();gesture.name='namaskar-hands';gesture.visible=false;p.body.add(gesture);p.gesture=gesture;p.gestureRods=Array.from({length:4},()=>w.cyl('#a77b57',[0,0,0],[.06,.3,.06],gesture));p.palms=[-1,1].map(side=>w.ball('#a77b57',[side*.025,1.45,.36],[.028,.105,.06],gesture));}
+  // The shared human model supplies an articulated head and planted leg pivots.
+  p.head??=new THREE.Group();
+  if(p.characterId&&!p.nonInteractable){const gesture=new THREE.Group();gesture.name='namaskar-hands';gesture.visible=false;p.body.add(gesture);p.gesture=gesture;p.gestureRods=Array.from({length:4},(_,i)=>w.cyl(i%2?p.skin:'#'+p.arms[0].children[1].material.color.getHexString(),[0,0,0],[.06,.3,.06],gesture));p.palms=[-1,1].map(side=>{const palm=w.ball(p.skin,[side*.025,1.45,.36],[.028,.105,.06],gesture);w.mesh(w.geometries.fingers,p.skin,[0,.2,0],[1,.8,.6],palm).rotation.z=Math.PI;return palm;});}
  }
+ w.addaGroups=[[-7.6,8.7,-6.8,8.3],[7.4,25.7,7.8,24.6]];
+ for(const [ax,az,bx,bz] of w.addaGroups){const a=w.people.find(p=>p.home.x===ax&&p.home.z===az),b=w.people.find(p=>p.home.x===bx&&p.home.z===bz);if(a&&b){a.chatPartner=b;b.chatPartner=a;a.restYaw=Math.atan2(bx-ax,bz-az);b.restYaw=a.restYaw+Math.PI;a.g.rotation.y=a.restYaw;b.g.rotation.y=b.restYaw;}}
  const walkers=w.people.filter(p=>p.batched&&p.g.position.z>20).slice(-3);for(const [i,p] of walkers.entries()){p.walkPoints=[{x:p.home.x,z:p.home.z},{x:p.home.x+(p.home.x>0?-.8:.8),z:p.home.z-1.2}];p.walkIndex=i%2;p.walkWait=i*1.1;}
 }
 
@@ -55,19 +57,24 @@ export function greetPerson(w,id){const p=w.characters.get(id);if(!p||p.nonInter
 export function characterPosition(w,id){const p=w.characters.get(id);return p?[p.g.position.x,p.g.position.y+2.22*p.g.scale.y,p.g.position.z]:null;}
 
 export function updatePeople(w,dt){
- w.lifeTime+=dt;w.crowdTick+=dt;const refresh=w.crowdTick>=1/24;if(refresh)w.crowdTick=0;
+ w.lifeTime+=dt;w.crowdTick+=dt;const refresh=w.crowdTick>=1/24;if(refresh){w.crowdTick=0;for(const mesh of w.visitorBatches||[])mesh.count=0;}
  for(const p of w.people){
   const t=w.lifeTime,phase=t+p.seed,queueActive=p.queueId!==undefined&&w.queueRun;
   const greeting=Math.max(0,(p.greetingUntil||0)-t);
-  if(p.walkPoints&&!w.reduced&&!greeting&&!w.target&&w.started&&!w.locked&&!w.conversationId){p.walkWait-=dt;if(p.walkWait<=0){const target=p.walkPoints[p.walkIndex],dist=Math.hypot(target.x-p.g.position.x,target.z-p.g.position.z),step=Math.min(dist,.65*dt);const others=w.people.filter(o=>o!==p).map(o=>({x:o.g.position.x,z:o.g.position.z,radius:o.radius}));others.push({x:w.camera.position.x,z:w.camera.position.z,radius:.36});const safe=moveAmongPeople(p.g.position,{x:p.g.position.x+(target.x-p.g.position.x)*step/(dist||1),z:p.g.position.z+(target.z-p.g.position.z)*step/(dist||1)},others,p.radius);p.g.rotation.y=Math.atan2(safe.x-p.g.position.x,safe.z-p.g.position.z);p.g.position.x=safe.x;p.g.position.z=safe.z;if(dist<.08){p.walkIndex=1-p.walkIndex;p.walkWait=2.5;}p.walking=dist>.08;}else p.walking=false;}else p.walking=false;
-  if(!w.reduced&&!queueActive){p.body.position.y=Math.sin(phase*1.7)*.018+(p.walking?Math.abs(Math.sin(t*6))*.025:0);p.head.rotation.y=Math.sin(phase*.48)*.13;p.head.rotation.x=Math.sin(phase*.72)*.035;p.body.rotation.z=Math.sin(phase*.7)*.014;
-   p.legs.forEach((leg,i)=>leg.rotation.x=p.walking?Math.sin(t*6+i*Math.PI)*.35:0);
+  if(p.walkPoints&&!w.reduced&&!greeting&&!w.target&&w.started&&!w.locked&&!w.conversationId){p.walkWait-=dt;if(p.walkWait<=0){const target=p.walkPoints[p.walkIndex],dist=Math.hypot(target.x-p.g.position.x,target.z-p.g.position.z),step=Math.min(dist,.65*dt);const others=w.people.filter(o=>o!==p).map(o=>({x:o.g.position.x,z:o.g.position.z,radius:o.radius}));others.push({x:w.camera.position.x,z:w.camera.position.z,radius:.36});const safe=moveAmongPeople(p.g.position,{x:p.g.position.x+(target.x-p.g.position.x)*step/(dist||1),z:p.g.position.z+(target.z-p.g.position.z)*step/(dist||1)},others,p.radius);if(Math.hypot(safe.x-p.g.position.x,safe.z-p.g.position.z)>.0001)p.walkYaw=Math.atan2(safe.x-p.g.position.x,safe.z-p.g.position.z);p.g.position.x=safe.x;p.g.position.z=safe.z;if(dist<.08){p.walkIndex=1-p.walkIndex;p.walkWait=2.5;}p.walking=dist>.08;}else p.walking=false;}else p.walking=false;
+  if(!w.reduced&&!queueActive){p.body.position.y=0;p.head.rotation.y=Math.sin(phase*.48)*.13;p.head.rotation.x=Math.sin(phase*.72)*.035;p.body.rotation.z=0;
+   // Shallow swing with a compensating hip lift keeps soles above the ground.
+   p.legs.forEach((leg,i)=>{const stride=p.walking?Math.sin(t*6+i*Math.PI)*.25:0;leg.rotation.x=stride;leg.position.y=.37+Math.max(0,Math.sin(t*6+i*Math.PI))*(p.walking?.025:0);});
+   if(p.walking)p.g.rotation.y=turnTowards(p.g.rotation.y,p.walkYaw??p.restYaw,dt*4);
    if(['idle','photo','pray'].includes(p.pose))for(let i=0;i<2;i++){p.arms[i].rotation.x=p.restArms[i].x+Math.sin(phase*(p.walking?6:1.15)+i*Math.PI)*(p.walking?.3:.055);p.arms[i].rotation.z=p.restArms[i].z+Math.sin(phase*.8+i)*.035;}
   }
+  if(p.gesture&&!greeting&&w.conversationId!==p.characterId&&!p.walking)p.g.rotation.y=w.reduced?p.restYaw:turnTowards(p.g.rotation.y,p.restYaw,dt*4);
+  if(p.chatPartner&&!greeting&&!p.walking&&!w.reduced){p.g.rotation.y=turnTowards(p.g.rotation.y,p.restYaw,dt*3);p.head.rotation.y=Math.sin(phase*.6)*.08;p.arms[1].rotation.x=-.25+Math.sin(phase*1.3)*.12;p.arms[1].rotation.z=.15;}
   if(p.pose==='arati')p.g.rotation.y=Math.atan2(-p.g.position.x,-21.25-p.g.position.z);
-  if(p.gesture){p.gesture.visible=greeting>0;p.arms.forEach(a=>a.visible=!greeting);if(greeting){const age=t-p.greetingStart,k=w.reduced?1:Math.min(1,age/.55,greeting/.55);const facing=Math.atan2(w.camera.position.x-p.g.position.x,w.camera.position.z-p.g.position.z);p.g.rotation.y=facing;p.head.rotation.x=.12*k;for(let sideIndex=0;sideIndex<2;sideIndex++){const side=sideIndex?1:-1,shoulder=new THREE.Vector3(side*.23,1.48,0),elbow=new THREE.Vector3(side*.32,1.09,.19*k),hand=new THREE.Vector3(side*(.31*(1-k)+.025*k),1.02+.43*k,.045+.315*k);p.palms[sideIndex].position.copy(hand);const points=[[shoulder,elbow],[elbow,hand]];points.forEach(([a,b],j)=>{const rod=p.gestureRods[sideIndex*2+j],v=b.clone().sub(a);rod.position.copy(a).add(b).multiplyScalar(.5);rod.scale.y=v.length();rod.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),v.normalize());});}}}
-  if(p.batched&&refresh){p.g.updateWorldMatrix(true,true);for(const ref of p.instances||[]){let visible=!p.ritualHidden;for(let o=ref.object;o&&o!==p.g;o=o.parent)if(!o.visible){visible=false;break;}ref.mesh.setMatrixAt(ref.index,visible?ref.object.matrixWorld:HIDDEN_VISITOR);ref.mesh.instanceMatrix.needsUpdate=true;}}
+  if(p.gesture){p.gesture.visible=greeting>0;p.arms.forEach(a=>a.visible=!greeting);if(greeting){const age=t-p.greetingStart,k=w.reduced?1:Math.min(1,age/.55,greeting/.55);const facing=Math.atan2(w.camera.position.x-p.g.position.x,w.camera.position.z-p.g.position.z);p.g.rotation.y=w.reduced?facing:turnTowards(p.g.rotation.y,facing,dt*7);p.head.rotation.x=.12*k;for(let sideIndex=0;sideIndex<2;sideIndex++){const side=sideIndex?1:-1,shoulder=new THREE.Vector3(side*.23,1.48,0),elbow=new THREE.Vector3(side*.32,1.09,.19*k),hand=new THREE.Vector3(side*(.31*(1-k)+.025*k),1.02+.43*k,.045+.315*k);p.palms[sideIndex].position.copy(hand);const points=[[shoulder,elbow],[elbow,hand]];points.forEach(([a,b],j)=>{const rod=p.gestureRods[sideIndex*2+j],v=b.clone().sub(a);rod.position.copy(a).add(b).multiplyScalar(.5);rod.scale.y=v.length();rod.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),v.normalize());});}}}
+  if(p.batched&&refresh){p.g.updateWorldMatrix(true,true);for(const ref of p.instances||[]){let visible=!p.ritualHidden&&(!ref.object.userData.fineDetail||p.g.position.distanceTo(w.camera.position)<14);for(let o=ref.object;o&&o!==p.g;o=o.parent)if(!o.visible){visible=false;break;}if(visible)ref.mesh.setMatrixAt(ref.mesh.count++,ref.object.matrixWorld);}}
  }
+ if(refresh)for(const mesh of w.visitorBatches||[]){mesh.visible=mesh.count>0;mesh.instanceMatrix.needsUpdate=true;}
 }
 
 export function createFireworks(w){

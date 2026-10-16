@@ -1,6 +1,9 @@
 import * as THREE from './assets/three.module.js';
 import {buildRequestedAdditions} from './pujo-additions.js';
 import {alponaMaterials} from './alpona.js';
+import {makePerson} from './human-model.js';
+import {presentPurchase,putAwayPurchase,updatePurchase} from './street-purchases.js';
+import {buildAlponaCorner,applyAlpona,captureAlpona} from './alpona-corner.js';
 import {buildPhotoBooth,capturePortrait} from './photo-booth.js';
 import {constrainWalk} from './game-state.js';
 import {queueSnapshot,moveAmongPeople,crowdPath,WALK_SPEED} from './movement.js';
@@ -16,7 +19,7 @@ export class PujoWorld {
   this.materials=new Map();this.geometries={box:new THREE.BoxGeometry(1,1,1),sphere:new THREE.SphereGeometry(1,12,8),cylinder:new THREE.CylinderGeometry(1,1,1,12),cone:new THREE.ConeGeometry(1,1,12)};
   this.scene.add(new THREE.HemisphereLight('#dad0e8','#59402c',2.2));const moon=new THREE.DirectionalLight('#fff1d4',2.5);moon.position.set(-8,16,13);this.scene.add(moon);
   this.point('#ffb15b',100,25,0,6,-8);this.point('#ffc86d',65,24,0,7,3);this.point('#ffb35c',55,14,-10,3.5,10);this.point('#ffce8b',40,12,10,3,12);
-  this.buildStreet();buildStreetDetails(this);this.batchStreet();this.buildPandal();this.buildStalls();this.buildPeople();buildRequestedAdditions(this);this.buildAtmosphere();installPeopleLife(this);buildPhotoBooth(this);createFireworks(this);this.bind();this.last=performance.now();this.frame(performance.now());
+  this.buildStreet();buildStreetDetails(this);this.batchStreet();this.buildPandal();this.buildStalls();this.buildPeople();buildRequestedAdditions(this);this.buildAtmosphere();installPeopleLife(this);buildPhotoBooth(this);buildAlponaCorner(this);createFireworks(this);this.bind();this.last=performance.now();this.frame(performance.now());
   document.fonts?.ready.then(()=>{for(const refresh of this.textRefresh||[])refresh();});
   this.onReady();
  }
@@ -172,47 +175,28 @@ export class PujoWorld {
   this.arch(0,5.8,.12,1.48,.12,red,w);for(let i=0;i<7;i++){const a=i*Math.PI/6;this.rod([0,5.8,.15],[Math.cos(a)*1.35,5.8+Math.sin(a)*1.35,.15],.025,'#665c46',w);}this.box('#e0c59b',[0,1.6,.2],[3.55,.16,.55],w);
  }
  batchPeople(people){
-  this.scene.updateMatrixWorld(true);const batches=new Map();for(const p of people){p.instances=[];p.g.traverse(object=>{if(!object.isMesh)return;const key=object.geometry.uuid+object.material.uuid,b=batches.get(key)||{geometry:object.geometry,material:object.material,entries:[]};b.entries.push({person:p,object});batches.set(key,b);});p.batched=true;p.g.visible=false;}
-  for(const b of batches.values()){const mesh=new THREE.InstancedMesh(b.geometry,b.material,b.entries.length);mesh.name='instanced-visitors';mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);b.entries.forEach(({person,object},index)=>{mesh.setMatrixAt(index,object.matrixWorld);person.instances.push({mesh,index,object});});this.scene.add(mesh);}
+  this.scene.updateMatrixWorld(true);const batches=new Map(),built=[];for(const p of people){p.instances=[];p.g.traverse(object=>{if(!object.isMesh)return;const key=object.geometry.uuid+object.material.uuid,b=batches.get(key)||{geometry:object.geometry,material:object.material,entries:[]};b.entries.push({person:p,object});batches.set(key,b);});p.batched=true;p.g.visible=false;}
+  for(const b of batches.values()){const mesh=new THREE.InstancedMesh(b.geometry,b.material,b.entries.length);mesh.name='instanced-visitors';mesh.frustumCulled=false;built.push(mesh);mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);b.entries.forEach(({person,object},index)=>{mesh.setMatrixAt(index,object.matrixWorld);person.instances.push({mesh,index,object});});this.scene.add(mesh);}
+  return built;
  }
 
- person(x,z,{outfit='#c18c54',sari=false,pose='idle',scale=1,rotation=0,hair='#292526',skin='#a77b57',priest=false}={}){
-  const g=new THREE.Group();g.position.set(x,z<1?.4:0,z);g.rotation.y=rotation;g.scale.setScalar(scale);this.scene.add(g);
-  const body=new THREE.Group();g.add(body);
-  const human=z<1||pose==='portrait';
-  if(sari){this.mesh((this.geometries.sari??=new THREE.CylinderGeometry(.22,.34,1.1,12)),outfit,[0,.75,0],null,body);this.ball(outfit,[0,1.36,0],[.27,.35,.19],body);this.box('#e1c195',[-.15,1.05,.2],[.09,1,.04],body);this.ball(hair,[0,1.99,-.12],[.21,.16,.16],body);this.ball(hair,[.05,1.87,-.22],[.13,.13,.12],body);}
-  else{this.mesh((this.geometries.kurta??=new THREE.CylinderGeometry(.22,.28,.85,12)),outfit,[0,1.15,0],null,body);this.cyl(priest?'#eee1c5':'#c9b697',[0,.54,0],[.245,.6,.245],body);for(let side of [-1,1]){this.cyl(skin,[side*.12,.19,0],[.065,.32,.065],body);this.box('#48362b',[side*.12,.04,.06],[.16,.08,.3],body);}this.ball(hair,[0,1.99,-.025],[.195,.14,.17],body);}
-  // Adult proportions, a shaped jaw and facial features for the mandap and portraits.
-  if(human){for(const part of body.children.filter(o=>o.position.y>1.7)){part.scale.multiplyScalar(.79);part.position.y-=.015;}g.name='human-puja-visitor';}
-  this.cyl(skin,[0,1.65,0],[human?.065:.07,.16,human?.065:.07],body);this.ball(skin,[0,1.85,.02],human?[.145,.19,.14]:[.18,.23,.17],body);this.ball(skin,[0,1.85,human?.162:.19],human?[.025,.043,.042]:[.035,.045,.035],body);
-  // Tiny face details, sandals and a red bindi where appropriate.
-  for(let side of [-1,1]){if(human){this.ball('#e5d9c8',[side*.055,1.89,.144],[.024,.012,.009],body);this.ball('#302821',[side*.055,1.89,.153],[.009,.011,.006],body);this.rod([side*.03,1.925,.144],[side*.08,1.925,.132],.008,hair,body);this.ball(skin,[side*.145,1.85,.01],[.025,.043,.028],body);}else this.ball('#302821',[side*.065,1.91,.166],[.015,.017,.009],body);}if(sari)this.ball('#a13a30',[0,human?1.95:2.005,human?.154:.17],[.012,.016,.009],body);
-  const arms=[];for(let side of [-1,1]){const arm=new THREE.Group();arm.position.set(side*.23,1.48,0);body.add(arm);if(human){this.ball(sari?outfit:skin,[0,-.02,0],[.075,.09,.08],arm);this.rod([0,0,0],[side*.04,-.24,.015],.06,sari?outfit:priest?skin:outfit,arm);this.ball(skin,[side*.04,-.24,.015],[.055,.055,.055],arm);this.rod([side*.04,-.24,.015],[side*.06,-.43,.05],.045,skin,arm);const hand=this.ball(skin,[side*.06,-.48,.05],[.044,.078,.025],arm);hand.name='human-hand';this.ball(skin,[side*.025,-.455,.078],[.018,.04,.018],arm);}else{this.rod([0,0,0],[side*.07,-.4,.025],.065,sari?outfit:skin,arm);this.ball(skin,[side*.07,-.45,.03],[.065,.09,.065],arm);}arms.push(arm);}
-  if(pose==='photo'){arms[0].rotation.x=-1.5;arms[1].rotation.x=-1.5;this.box('#292d31',[0,1.6,.54],[.32,.17,.035],body);this.box('#728d9d',[0,1.6,.562],[.25,.12,.01],body,{emissive:'#8aa0bd',emissiveIntensity:.3});}
-  if(pose==='pray'){if(human){arms.forEach(a=>a.visible=false);for(const side of [-1,1]){this.rod([side*.23,1.48,0],[side*.30,1.10,.13],.055,skin,body);this.rod([side*.30,1.10,.13],[side*.025,1.43,.30],.045,skin,body);this.ball(skin,[side*.025,1.47,.30],[.025,.085,.045],body);}}else{for(let i=0;i<2;i++){arms[i].rotation.x=-1;arms[i].rotation.z=i?.5:-.5;}this.rod([-.16,1.32,.37],[0,1.48,.4],.05,skin,body);this.rod([.16,1.32,.37],[0,1.48,.4],.05,skin,body);}}
-  if(priest){this.box('#b66541',[-.14,1.25,.2],[.11,.75,.04],body);this.rod([-.18,1.55,.22],[.19,.9,.22],.012,'#f1ddac',body);this.ball('#934438',[0,2.01,.18],[.018,.045,.01],body);}
-  if(human){this.box('#7c4d3e',[0,1.77,.153],[.047,.009,.009],body);this.ball(skin,[0,1.72,.065],[.092,.055,.065],body);
-   if(sari){const pallu=this.box('#d8b06a',[-.09,1.29,.185],[.075,.63,.026],body);pallu.rotation.z=-.46;for(let i=0;i<5;i++)this.rod([-.08+i*.035,.22,.335],[(-.08+i*.035)*.65,.96,.255],.009,'#ce955e',body);const hem=this.mesh((this.geometries.sariHem??=new THREE.TorusGeometry(.33,.012,5,32)),'#d8b06a',[0,.23,0],null,body);hem.rotation.x=Math.PI/2;for(const side of [-1,1]){this.ball('#bd923f',[side*.15,1.81,.02],[.018,.04,.018],body);this.box('#48362b',[side*.11,.07,.08],[.14,.065,.27],body);}}
-   else{this.box('#cfb47e',[0,1.34,.235],[.035,.38,.015],body);for(const y of [1.26,1.36,1.46])this.ball('#795d3f',[0,y,.25],[.014,.014,.008],body);for(const side of [-1,1]){const fold=this.box('#e6d5b3',[side*.11,.53,.205],[.12,.55,.035],body);fold.rotation.z=side*.08;this.rod([side*.04,1.59,.10],[side*.11,1.54,.18],.018,outfit,body);}}
-  }
-  const person={g,body,arms,pose,human,seed:x*3+z,radius:.30*scale};this.people.push(person);return person;
- }
+ person(x,z,options={}){return makePerson(this,x,z,options);}
  buildPeople(){
   const colors=['#b95448','#b59a5c','#597b78','#d6b78a','#867197','#b08b6b','#72917c'];
   // Each queue figure has a permanent identity and follows the same curved path.
   this.queuePeople=[];const initial=queueSnapshot(0);for(let i=0;i<9;i++){const q=initial.people[i],p=this.person(q.x,q.z,{outfit:colors[i%7],sari:i%3===0,rotation:q.yaw,scale:i===5?.78:.95});p.queueId=i;this.queuePeople.push(p);}
   this.volunteer=this.person(3.4,1.7,{outfit:'#c6b494',rotation:0});this.text('VOLUNTEER',[0,1.35,.24],.40,.12,{bg:'#784c36',font:'DM Sans',size:55,parent:this.volunteer.body});
-  this.person(-3.2,17.8,{outfit:'#b75949',sari:true,rotation:.3});this.person(-4,18.3,{outfit:'#e1c798',rotation:2.2});this.person(-2.9,19.5,{outfit:'#6c8c85',scale:.6,rotation:2.7});
-  this.vendorPeople=new Map();for(const [id,x,z,sari] of [['tea',-10.55,10,false],['game',9.7,14.9,false],['fuchka',-10.55,19,false],['jhalmuri',-10.55,25,false],['mishti',10.55,25,true],['flowers',10.55,7,true]]){const p=this.person(x,z,{outfit:colors[this.vendorPeople.size],sari,rotation:x<0?Math.PI/2:-Math.PI/2});p.g.position.y=.22;p.vendor=true;this.vendorPeople.set(id,p);}
+  this.person(-3.2,17.8,{outfit:'#b75949',sari:true,rotation:.3});this.person(-4,18.3,{outfit:'#e1c798',appearance:1,rotation:2.2});this.person(-2.9,19.5,{outfit:'#6c8c85',scale:.6,rotation:2.7});
+  this.vendorPeople=new Map();for(const [id,x,z,sari] of [['tea',-10.55,10,false],['game',9.7,14.9,false],['fuchka',-10.55,19,false],['jhalmuri',-10.55,25,false],['mishti',10.55,25,true],['flowers',10.55,7,true]]){const p=this.person(x,z,{outfit:colors[this.vendorPeople.size],sari,appearance:this.vendorPeople.size+1,age:id==='tea'?'elder':'adult',rotation:x<0?Math.PI/2:-Math.PI/2});p.g.position.y=.22;p.vendor=true;this.vendorPeople.set(id,p);}
   this.person(7.6,19,{outfit:'#6e8a85',rotation:.1});
   const streetSpots=[[-7.2,23.8],[7.4,25.7],[7.8,24.6],[-7.6,8.7],[-6.8,8.3],[1.5,23],[-5.8,25.8],[3.5,21.4],[6.8,16],[-6,14],[-4.5,11.5],[2,26],[-2,25]];
-  const staticPeople=[];streetSpots.forEach(([x,z],i)=>staticPeople.push(this.person(x,z,{outfit:colors[i%7],sari:i%3===0,scale:i===2?.65:1,rotation:i*.8})));
+  const staticPeople=[];streetSpots.forEach(([x,z],i)=>staticPeople.push(this.person(x,z,{outfit:colors[i%7],sari:i%3===0,appearance:i,age:i%5===0?'elder':'adult',build:[.94,1.08,1][i%3],scale:i===2?.65:[.94,1.04,1][i%3],rotation:i*.8})));
   // Families and photographers leave a clear walking aisle and queue exit routes.
   const spots=[];for(const side of [-1,1])for(let row=0;row<6;row++)for(let col=0;col<3;col++){const x=side*(2.3+col*2.1),z=-3-row*2.15;if(Math.hypot(x+6.5,z+7.7)<1.3)continue;if([[-4.6,-7],[4.5,-7],[-5.4,-9],[5.4,-9],[-4.5,-11.5],[4.5,-11.5],[-6.8,-14],[6.8,-14],[-3,-15.5]].some(([a,b])=>Math.hypot(x-a,z-b)<.85))continue;spots.push([x,z]);}
   spots.push([-7.7,-15.8],[7.7,-15.8],[-5.8,-16],[5.8,-16],[-2.3,-16],[2.3,-16]);
-  spots.forEach(([x,z],i)=>staticPeople.push(this.person(x,z,{outfit:colors[i%7],sari:i%3===0,pose:i%4===0?'photo':i%3===0?'pray':'idle',rotation:Math.PI+(i%3-.9)*.2,scale:i===8?.68:1})));
+  spots.forEach(([x,z],i)=>staticPeople.push(this.person(x,z,{outfit:colors[i%7],sari:i%3===0,appearance:i,age:i%6===0?'elder':'adult',build:[.96,1.08,1][i%3],pose:i%4===0?'photo':i%3===0?'pray':'idle',rotation:Math.PI+(i%3-.9)*.2,scale:i===8?.68:[.95,1.04,1][i%3]})));
   this.person(-3,-10,{outfit:'#867197',sari:true,pose:'photo',rotation:Math.PI});
-  this.batchPeople(staticPeople);
+  this.visitorBatches=this.batchPeople(staticPeople);
   // Bengali priest, dhoti and uttariya, facing Maa and circling the arati lamp.
   const priest=this.person(.35,-17.5,{outfit:'#e6d6b4',priest:true,rotation:Math.atan2(-.35,-3.75),pose:'arati'});this.priest=priest;priest.nonInteractable=true;priest.arms[1].rotation.x=-1.3;
   const lampGroup=new THREE.Group();priest.body.add(lampGroup);lampGroup.position.set(.43,1.4,.52);this.cyl('#b39745',[0,0,0],[.25,.05,.25],lampGroup);for(let i=0;i<5;i++){const a=i/5*Math.PI*2;this.ball('#ffe5a0',[Math.cos(a)*.18,.12,Math.sin(a)*.18],[.035,.13,.035],lampGroup,{emissive:'#ffb13a',emissiveIntensity:3});}
@@ -242,12 +226,16 @@ export class PujoWorld {
   this.canvas.addEventListener('pointermove',e=>{if(!this.drag)return;this.yaw-=(e.clientX-this.drag.x)*.004;this.pitch=Math.max(-.65,Math.min(.6,this.pitch-(e.clientY-this.drag.y)*.003));this.drag.x=e.clientX;this.drag.y=e.clientY;});
   const release=()=>{this.drag=null;};this.canvas.addEventListener('pointerup',release);this.canvas.addEventListener('pointercancel',release);
  }
+ presentPurchase(shop,item){return presentPurchase(this,shop,item);}
+ putAwayPurchase(){putAwayPurchase(this);}
+ applyAlpona(stamps){return applyAlpona(this,stamps);}
+ captureAlpona(){return captureAlpona(this);}
  capturePortrait(options){return capturePortrait(this,options);}
  characterPosition(id){return characterPosition(this,id);}
  greet(id){greetPerson(this,id);}
  startFireworks(){this.fireworks.elapsed=0;this.fireworks.active=true;this.fireworks.points.visible=true;updateFireworks(this,0);}
  stopFireworks(){this.fireworks.active=false;this.fireworks.points.visible=false;}
- obstacles(){const obstacles=this.people.filter(p=>!p.ritualHidden).map(p=>({x:p.g.position.x,z:p.g.position.z,radius:p.radius}));if(this.photoRig)obstacles.push({x:0,z:14.5,radius:.47});return obstacles.concat(this.rituals?.obstacles()||[]);}
+ obstacles(){const obstacles=this.people.filter(p=>!p.ritualHidden).map(p=>({x:p.g.position.x,z:p.g.position.z,radius:p.radius}));if(this.artBench)obstacles.push({x:-6.3,z:5.5,radius:.72});if(this.photoRig)obstacles.push({x:0,z:14.5,radius:.47});return obstacles.concat(this.rituals?.obstacles()||[]);}
  joinQueue(onUpdate=()=>{}){this.stop();this.cancelMove();this.locked=true;return new Promise(resolve=>{this.queueRun={elapsed:0,resolve,onUpdate,released:false};});}
  updateQueue(dt){const run=this.queueRun;if(!run)return;run.elapsed+=dt;const snap=queueSnapshot(run.elapsed);this.queuePeople.forEach((p,i)=>{const q=snap.people[i];p.g.position.set(q.x,q.z<1?.4:0,q.z);p.g.rotation.y=q.yaw;if(!this.reduced){p.arms[0].rotation.x=Math.sin(run.elapsed*9+i)*.15;p.arms[1].rotation.x=-Math.sin(run.elapsed*9+i)*.15;}});
   if(!run.released){this.camera.position.set(snap.player.x,snap.player.z<1?2.1:1.9,snap.player.z);this.yaw=snap.player.yaw+Math.PI;this.pitch=.04;run.onUpdate(snap);if(snap.done){this.hasEntered=true;this.locked=false;run.released=true;run.resolve();}}
@@ -270,7 +258,7 @@ export class PujoWorld {
   this.camera.rotation.set(this.pitch,this.yaw,0,'YXZ');
   if(this.companionBalloon){this.companionBalloon.position.x=Math.min(1.05,.68*2.05*Math.tan(this.camera.fov*Math.PI/360)*this.camera.aspect);if(!this.reduced){this.companionBalloon.position.y=.38+Math.sin(t*1.5)*.035;this.companionBalloon.rotation.z=Math.sin(t*.8)*.045;}}
   for(const anim of this.animations)anim(t);
-  this.rituals?.update(dt,t);this.renderer.render(this.scene,this.renderCamera||this.camera);this.onFrame?.(this.camera.position,t);requestAnimationFrame(n=>this.frame(n));
+  this.rituals?.update(dt,t);this.camera.updateMatrixWorld();updatePurchase(this,dt);this.renderer.render(this.scene,this.renderCamera||this.camera);this.onFrame?.(this.camera.position,t);requestAnimationFrame(n=>this.frame(n));
  }
  screenshot(){this.renderer.render(this.scene,this.renderCamera||this.camera);return this.canvas;}
 }

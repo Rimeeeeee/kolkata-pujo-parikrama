@@ -40,7 +40,7 @@ Courtyard and alpona study: [Orange Wayfarer's own Kolkata Bonedi Bari photo wal
 
 Conversation markers attach to the actual character, not to the shop banner, and appear only within 2.65 scene metres. Conversation, menu, purchase, voice and shooting-range entry handlers also check proximity. Guided shop visits stop beside the seller. Purchases are rechecked even if a previously opened menu button is activated after leaving. The companion balloon remains visible in 3D without a bottom-of-screen colour label.
 
-Characters breathe, turn their heads, shift weight and move their arms; three neighbours take short collision-aware walks. Walkers pause during guided navigation and conversations. Male walking rigs swing the legs as they step. Greeting characters face the visitor, bow slightly and press both palms together for a namaskar. Instanced visitors update at 24 Hz to keep draw calls low. Reduced motion disables idle/walking animation and makes the fireworks a still display.
+Characters turn their heads and move their arms; three neighbours take short collision-aware walks with smooth turns and planted soles. Walkers pause during guided navigation and conversations. All walking rigs have articulated legs. Greeting characters face the visitor, bow slightly and press both palms together for a namaskar. Instanced visitors update at 24 Hz to keep draw calls low. Reduced motion disables idle/walking animation and makes the fireworks a still display.
 
 The fairground attendant stands alongside the target board with no bounding-box overlap. The taxi has an original rounded Ambassador-inspired body, yellow paint, blue side stripe, round headlights, chrome grille and a fictional West Bengal plate. Design reference: [original Kolkata taxi photograph on Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Hindustan_Ambassador_taxi_(Ambassador_Taxis_in_Kolkata).JPG); the photograph itself is not redistributed.
 
@@ -85,3 +85,16 @@ Add a postcard or sari/dhoti portrait to **Album** to collect memories from all 
 The album saves locally using IndexedDB, with no uploads or account. It holds up to 24 pictures within an image-size budget; storage failures are reported without claiming that a save succeeded. If browser storage is unavailable, the album clearly identifies itself as temporary. Download copies to keep your pictures if browser data is cleared. Small gallery thumbnails, lazy loading, sequential collage image decoding and bounded canvas dimensions help limit memory use. Landscape dialogs scroll, keep a reachable Close button and pause walking while open.
 
 All **99 current automated checks pass**, including album persistence failure handling, duplicate/limit rules, captions, undo, collage layout and complete-image framing. Muted browser replay collected all four days, verified actual reload persistence and inspected both individual PNGs and the generated collage. See [alpona and album replay notes](docs/qa/alpona-album.md) and the [sample four-day collage](docs/qa/alpona-album/four-day-collage.png).
+
+
+## Models, street life and your own alpona
+
+This work lives on `improve-pujo-models-and-street-life`, branched from `improve-pujo-mobile-and-rituals` at `95f6e16`. PR #1 is unchanged.
+
+All visitors now share the human rig, with softer faces, eyes and smiles, varied skin tones and hair, children and elders, and different heights and builds. Sari models have a draped pallu, visible pleats, jewellery and sandals; dhoti kurtas have tailored collars, buttons and folds. Fingers follow the palm during ritual contact. Neighbours turn smoothly into greetings and back, and two existing groups chat without adding obstacles to the walking aisle.
+
+Taking an item at a food or flower stall closes the menu and shows the vendor extending the actual serving. It moves into your hand and travels with you; **Put away** removes it. Seven reusable serving models cover clay cups, leaf plates, paper cones, sweets, yoghurt and three basket sizes. Ritual cameras and dress-up/art exports hide the first-person serving. All purchases still use pretend money and require proximity.
+
+**Explore places → Paint your own alpona** takes you to the paint pots beside the entrance. Choose one of six motifs, four colours and three sizes, then tap the canvas or use Position + Add motif. Undo and Clear edit the draft. Complete places it on the lane; Photograph frames the whole design with the pandal and opens the normal PNG postcard and album actions. Each design is limited to 24 motifs, uses one reusable 768px floor texture, and lasts for the page visit. A saved photo stays in the existing browser album.
+
+The crowd shares garment/finger geometry and materials. Ordinary crowd instances are compacted at 24 Hz, omit hidden meshes, and drop fine detail beyond 14 scene metres. Reduced motion keeps handoffs immediate and still. Desktop and landscape browser replays are recorded in [models and street-life QA](docs/qa/models-and-street-life.md). Physical phone frame rate is not measured.
