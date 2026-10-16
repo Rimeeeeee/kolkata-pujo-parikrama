@@ -1,8 +1,11 @@
 import * as THREE from './assets/three.module.js';
 
 export function buildRequestedAdditions(w){
- // Reuse the original floor artwork. Existing alpona and floor geometry stay intact.
- w.addedAlponas=[];const original=w.alponas[0];for(const [x,z,size] of [[0,5.9,3.7],[0,9.5,2.5],[-8.15,10.7,1.7],[-8.15,19.7,1.7],[-8.15,25.6,1.7],[8.15,7.5,1.7],[8.15,15.2,1.7],[8.15,25.6,1.7],...([3.25,6.15].flatMap(x=>[5,8,11,14].map(z=>[x,z,.8])))]){const m=original.clone();m.scale.setScalar(size/original.geometry.parameters.width);m.position.set(x,.03,z);m.name='added-lane-alpona';w.scene.add(m);w.addedAlponas.push(m);}
+ // Shared geometry and six bright paint textures cover both lane and courtyard.
+ w.addedAlponas=[];const original=w.alponas[0];const shopBorders=[[-8.15,10],[-8.15,19],[-8.15,25],[8.15,7],[8.15,14.9],[8.15,25]].flatMap(([x,z])=>[-1.15,1.15].map(offset=>[x,z+offset,.65]));
+ const placements=[[0,5.9,3.7],[0,9.5,2.5],[0,18.4,3.4],[0,24,2.8],[-8.15,10.7,1.7],[-8.15,19.7,1.7],[-8.15,25.6,1.7],[8.15,7.5,1.7],[8.15,15.2,1.7],[8.15,25.6,1.7],...([3.25,6.15].flatMap(x=>[2,5,8,11,14,16.5,19].map(z=>[x,z,.8]))),...shopBorders,...([-5.1,5.1].flatMap(x=>[-2.2,-9.5,-15.8].map(z=>[x,z,2.3]))),...([-2.3,2.3].flatMap(x=>[6.8,10.7,20.7,26.2].map(z=>[x,z,1.1]))),...([-7.4,7.4].flatMap(x=>[-1,-7,-13,3.5,22.5].map(z=>[x,z,.9])))];
+ for(const [i,[x,z,size]] of placements.entries()){const m=original.clone();m.material=w.alponaPalette[i%w.alponaPalette.length];m.scale.setScalar(size/original.geometry.parameters.width);m.rotation.z=(i%4)*Math.PI/2;m.position.set(x,z<0?.408:.035,z);m.name=z<0?'added-courtyard-alpona':'added-lane-alpona';m.userData.design=m.material.name;w.scene.add(m);w.addedAlponas.push(m);}
+ w.alponaBatches=[];for(const material of w.alponaPalette){const tiles=[...w.alponas,...w.addedAlponas].filter(m=>m.material===material),batch=new THREE.InstancedMesh(original.geometry,material,tiles.length);batch.name='instanced-alpona';tiles.forEach((m,i)=>{m.updateWorldMatrix(true,false);const ratio=m.geometry.parameters.width/original.geometry.parameters.width;batch.setMatrixAt(i,m.matrixWorld.clone().scale(new THREE.Vector3(ratio,ratio,1)));m.visible=false;});batch.computeBoundingSphere();w.scene.add(batch);w.alponaBatches.push(batch);}
  w.extraDhakis=[];for(const [x,z,phase] of [[-8.3,-4.8,0],[8.3,-4.8,1.4]]){
   const p=w.person(x,z,{outfit:phase?'#b8734c':'#d9c7a5',pose:'dhak',rotation:x<0?.5:-.5});p.nonInteractable=true;w.extraDhakis.push(p);const drum=new THREE.Group();drum.position.set(0,.95,.48);drum.rotation.z=.2;p.body.add(drum);
   const barrel=w.mesh((w.geometries.extraDhak??=new THREE.CylinderGeometry(.31,.33,.85,14)),'#984b33',[0,0,0],null,drum);barrel.rotation.z=Math.PI/2;

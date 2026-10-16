@@ -9,3 +9,15 @@ test('a ballistic cork aimed above a target flies, drops, and actually pops that
 test('an off-board cork uses ammunition, misses and resets the hit streak',()=>{range.aim.set(.9,.9);range.fire();advance(70);assert.equal(range.round.shots,10);assert.equal(range.round.hits,1);assert.equal(range.round.combo,0);assert.equal(range.round.lastResult,'miss');});
 test('timeout ends once, remembers the best score, and blocks additional firing',()=>{range.clock=44.99;advance(10);assert(range.round.ended);assert.equal(finished,1);assert.equal(range.fire(),false);assert(Number(storage.get('pujo-range-best'))>=range.round.score);advance(10);assert.equal(finished,1);});
 test('reopening starts a fresh round and keeps the whole board in a phone viewport',()=>{range.stop();range.start();now=range.last;assert.equal(range.round.score,0);assert.equal(range.round.shots,12);rect.width=320;rect.height=300;range.resize();advance(1);for(let i=0;i<10;i++){const p=range.balloons[i].position.clone().project(range.camera);assert(Math.abs(p.x)<.9);assert(Math.abs(p.y)<.9);}range.stop();assert(!range.active);});
+
+test('range shortcuts preserve button and link activation while the focused canvas still fires',()=>{
+ const keyboardRange=new BalloonRange(canvas);keyboardRange.start();
+ const event=(key,interactive=false,repeat=false)=>({key,repeat,defaultPrevented:false,target:{closest:selector=>selector.split(',').includes(interactive)?{}:null},preventDefault(){this.defaultPrevented=true;}});
+ for(const target of ['button','a','input','textarea','select','[role="button"]','[contenteditable]:not([contenteditable="false"])'])for(const key of ['Enter',' ','ArrowLeft']){
+  const e=event(key,target);keyboardRange.keyHandler(e);assert(!e.defaultPrevented,`${target} must keep its native ${key} behaviour`);assert.equal(keyboardRange.round.shots,12);assert.equal(keyboardRange.aim.x,0);
+ }
+ const enter=event('Enter');keyboardRange.keyHandler(enter);assert(enter.defaultPrevented);assert.equal(keyboardRange.round.shots,11);assert.equal(keyboardRange.corks.length,1);
+ keyboardRange.cooldown=0;const held=event('Enter',false,true);keyboardRange.keyHandler(held);assert.equal(keyboardRange.round.shots,11,'holding Enter must not repeat fire');
+ const space=event(' ');keyboardRange.keyHandler(space);assert(space.defaultPrevented);assert.equal(keyboardRange.round.shots,10);
+ const arrow=event('ArrowLeft');keyboardRange.keyHandler(arrow);assert(arrow.defaultPrevented);assert(keyboardRange.aim.x<0);keyboardRange.stop();
+});

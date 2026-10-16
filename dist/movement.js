@@ -1,4 +1,5 @@
 export const PLAYER_RADIUS=.32;
+export const WALK_SPEED=4.2;
 export const QUEUE_PATH=[{x:4.7,z:17.5},{x:4.7,z:2.5},{x:0,z:1},{x:0,z:-5.5}];
 export const QUEUE_GAP=1.35;
 export function pathLength(points){let total=0;for(let i=1;i<points.length;i++)total+=Math.hypot(points[i].x-points[i-1].x,points[i].z-points[i-1].z);return total;}

@@ -1,0 +1,17 @@
+{
+  "text": "জয় মা দুর্গা!",
+  "romanized": "Joy Maa Durga!",
+  "engine": "Piper 1.8.0",
+  "model": "rhasspy/piper-voices bn_BD-google-medium",
+  "modelSha256": "f2e7518ed5534a755024a48c71b80bf617efaf12570bbdf3ce255a9526a8afd3",
+  "sourceSpeakers": [
+    "1010",
+    "4811"
+  ],
+  "layers": 4,
+  "processing": "Four original syntheses with staggered entries and different speaking rates; mixed and peak-normalized. No pitch shifting.",
+  "sampleRate": 22050,
+  "duration": 2.515,
+  "license": "CC-BY-SA-4.0",
+  "attribution": "See voices-natural/ATTRIBUTION.md and GOOGLE-CC-BY-SA-4.0.txt"
+}
